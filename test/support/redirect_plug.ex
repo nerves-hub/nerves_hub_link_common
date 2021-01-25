@@ -11,7 +11,7 @@ defmodule NervesHubFwup.Support.RedirectPlug do
 
   @impl Plug
   def call(%Plug.Conn{request_path: "/redirect"} = conn, _opts) do
-    redirect = "http://localhost:4001/redirected"
+    redirect = "http://localhost:5001/redirected"
 
     conn
     |> put_resp_header("accept-ranges", "bytes")

@@ -38,6 +38,10 @@ defmodule NervesHubFwup.UpdateManager do
     GenServer.call(manager, {:apply_update, update})
   end
 
+  def status(manager \\ __MODULE__) do
+    GenServer.call(manager, :status)
+  end
+
   @doc "Raises an ArgumentError on invalid arguments"
   def validate_args!(%Args{} = args) do
     args
@@ -76,8 +80,8 @@ defmodule NervesHubFwup.UpdateManager do
   @doc false
   def child_spec(%Args{} = args) do
     %{
-      restart: :always,
-      start: {__MODULE__, :start_link, [args, [name: __MODULE__]]}
+      start: {__MODULE__, :start_link, [args, [name: __MODULE__]]},
+      id: __MODULE__
     }
   end
 
@@ -89,7 +93,6 @@ defmodule NervesHubFwup.UpdateManager do
   @impl GenServer
   def init(%Args{} = args) do
     args = validate_args!(args)
-    Process.flag(:trap_exit, true)
     {:ok, %State{args: args}}
   end
 
@@ -99,12 +102,17 @@ defmodule NervesHubFwup.UpdateManager do
     {:reply, state.status, state}
   end
 
+  def handle_call(:status, _from, %State{} = state) do
+    {:reply, state.status, state}
+  end
+
   @impl GenServer
   def handle_info({:update_reschedule, response}, state) do
     {:noreply, maybe_update_firmware(response, %{state | update_reschedule_timer: nil})}
   end
 
   # messages from FWUP
+  # todo remove fwup from state
   def handle_info({:fwup, {:ok, 0, _message} = full_message}, state) do
     Logger.info("[NervesHubLink] FWUP Finished")
     _ = state.args.handle_fwup_message.(full_message)
@@ -127,6 +135,7 @@ defmodule NervesHubFwup.UpdateManager do
   end
 
   # Messages from Downloader
+  # todo remover downloader from state
   def handle_info({:download, :complete}, state) do
     {:noreply, state}
   end
@@ -140,20 +149,6 @@ defmodule NervesHubFwup.UpdateManager do
   def handle_info({:download, {:data, data}}, state) do
     _ = Fwup.Stream.send_chunk(state.fwup, data)
     {:noreply, state}
-  end
-
-  # process exits
-  def handle_info({:EXIT, download, :normal}, %State{download: download} = state) do
-    {:noreply, %{state | download: nil}}
-  end
-
-  def handle_info({:EXIT, fwup, :normal}, %State{fwup: fwup} = state) do
-    {:noreply, %{state | fwup: nil}}
-  end
-
-  def handle_info({:EXIT, fwup, {:exit, status}}, %State{fwup: fwup} = state) do
-    Logger.error("[NervesHubLink] Fatal fwup exit: #{status}")
-    {:noreply, %{state | fwup: nil}}
   end
 
   defp maybe_update_firmware(_data, %{status: {:updating, _percent}} = state) do

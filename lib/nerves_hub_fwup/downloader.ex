@@ -20,6 +20,26 @@ defmodule NervesHubFwup.Downloader do
 
   alias NervesHubFwup.Downloader
 
+  defmodule RetryArgs do
+    # todo - maybe we should make this a function of download size
+    defstruct [
+      # stop trying after this many disconnects
+      max_disconnects: 10,
+
+      # attempt a retry after this time
+      # if no data comes in after this amount of time, disconnect and retry
+      idle_timeout: 60_000,
+
+      # if the total time since this server has started reaches this time,
+      # stop trying, give up, disconnect, etc
+      # started right when the gen_server starts
+      max_timeout: 3_600_000,
+
+      # don't bother retrying until this time has passed
+      time_between_retries: 15_000
+    ]
+  end
+
   defstruct uri: nil,
             conn: nil,
             request_ref: nil,
@@ -28,10 +48,19 @@ defmodule NervesHubFwup.Downloader do
             content_length: 0,
             downloaded_length: 0,
             retry_number: 0,
-            handler_fun: nil
+            handler_fun: nil,
+            retry_args: nil,
+            max_timeout: nil,
+            retry_timeout: nil
 
   @type handler_event :: {:data, binary()} | {:error, any()} | :complete
   @type event_handler_fun :: (handler_event -> any())
+  @type retry_args :: %RetryArgs{
+          max_disconnects: non_neg_integer(),
+          idle_timeout: timeout(),
+          max_timeout: timeout(),
+          time_between_retries: non_neg_integer()
+        }
 
   @type t :: %Downloader{
           uri: nil | URI.t(),
@@ -39,10 +68,13 @@ defmodule NervesHubFwup.Downloader do
           request_ref: nil | reference(),
           status: nil | Mint.Types.status(),
           response_headers: Mint.Types.headers(),
-          content_length: 0 | pos_integer(),
-          downloaded_length: 0 | pos_integer(),
-          retry_number: 0 | pos_integer(),
-          handler_fun: event_handler_fun
+          content_length: non_neg_integer(),
+          downloaded_length: non_neg_integer(),
+          retry_number: non_neg_integer(),
+          handler_fun: event_handler_fun,
+          retry_args: retry_args(),
+          max_timeout: reference(),
+          retry_timeout: nil | reference()
         }
 
   @type initialized_download :: %Downloader{
@@ -51,11 +83,14 @@ defmodule NervesHubFwup.Downloader do
           request_ref: reference(),
           status: nil | Mint.Types.status(),
           response_headers: Mint.Types.headers(),
-          content_length: 0 | pos_integer(),
-          downloaded_length: 0 | pos_integer(),
-          retry_number: 0 | pos_integer(),
+          content_length: non_neg_integer(),
+          downloaded_length: non_neg_integer(),
+          retry_number: non_neg_integer(),
           handler_fun: event_handler_fun
         }
+
+  # todo, this should be `t`, but with retry_timeout
+  @type resume_rescheduled :: t()
 
   @doc """
   Begins downloading a file at `url` handled by `fun`.
@@ -76,80 +111,103 @@ defmodule NervesHubFwup.Downloader do
   """
   @spec start_download(String.t() | URI.t(), event_handler_fun()) :: GenServer.on_start()
   def start_download(url, fun) when is_function(fun, 1) do
-    GenServer.start_link(__MODULE__, [URI.parse(url), fun])
+    GenServer.start_link(__MODULE__, [URI.parse(url), fun, %RetryArgs{}])
   end
 
-  @doc """
-  Pause an in progress download
-  """
-  @spec pause_download(GenServer.server()) :: :ok | Mint.Types.error()
-  def pause_download(server) do
-    GenServer.call(server, :pause)
-  end
-
-  @doc """
-  Resume a paused download. Noop if the download isn't paused.
-  """
-  @spec resume_download(GenServer.server()) :: :ok | Mint.Types.error()
-  def resume_download(server) do
-    GenServer.call(server, :resume)
+  def start_download(url, fun, %RetryArgs{} = retry_args) when is_function(fun, 1) do
+    GenServer.start_link(__MODULE__, [URI.parse(url), fun, retry_args])
   end
 
   @impl GenServer
-  def init([%URI{} = uri, fun]) do
-    case resume_download(uri, %Downloader{handler_fun: fun}) do
-      {:ok, state} -> {:ok, state}
-      {:error, reason} -> {:stop, reason}
+  def init([%URI{} = uri, fun, %RetryArgs{} = retry_args]) do
+    timer = Process.send_after(self(), :max_timeout, retry_args.max_timeout)
+
+    state =
+      reset(%Downloader{
+        handler_fun: fun,
+        retry_args: retry_args,
+        max_timeout: timer,
+        uri: uri
+      })
+
+    send(self(), :resume)
+    {:ok, state}
+  end
+
+  @impl GenServer
+  # this message is scheduled during init/1
+  # it is a extreme condition where regardless of download attemts,
+  # idle timeouts etc, this entire process has lived for TOO long.
+  def handle_info(:max_timeout, %Downloader{} = state) do
+    {:stop, :max_timeout_reached, state}
+  end
+
+  # this message is delievered after `state.retry_args.idle_timeout`
+  # milliseconds have occured. It indicates that many milliseconds have elapsed since
+  # the last "chunk" from the HTTP server
+  def handle_info(:timeout, %Downloader{handler_fun: handler} = state) do
+    _ = handler.({:error, :idle_timeout})
+    state = reschedule_resume(state)
+    {:noreply, state}
+  end
+
+  # message is scheduled when a resumable event happens.
+  def handle_info(
+        :resume,
+        %Downloader{
+          retry_number: retry_number,
+          retry_args: %RetryArgs{max_disconnects: retry_number}
+        } = state
+      ) do
+    {:stop, :max_disconnects_reached, state}
+  end
+
+  def handle_info(:resume, %Downloader{handler_fun: handler} = state) do
+    case resume_download(state.uri, state) do
+      {:ok, state} ->
+        {:noreply, state, state.retry_args.idle_timeout}
+
+      error ->
+        _ = handler.(error)
+        state = reschedule_resume(state)
+        {:noreply, state}
     end
   end
 
-  @impl GenServer
-  def handle_call(:pause, _from, %Downloader{} = state) do
-    {:ok, conn} = Mint.HTTP.close(state.conn)
-    {:reply, :ok, %Downloader{state | conn: conn}}
-  end
-
-  def handle_call(:resume, _from, %Downloader{retry_number: retry_number} = state) do
-    if Mint.HTTP.open?(state.conn) do
-      {:reply, :ok, state}
-    else
-      case resume_download(state.uri, %{state | retry_number: retry_number + 1}) do
-        {:ok, state} ->
-          {:reply, :ok, state}
-
-        error ->
-          {:reply, error, state}
-      end
-    end
-  end
-
-  @impl GenServer
   def handle_info(message, %Downloader{handler_fun: handler} = state) do
     case Mint.HTTP.stream(state.conn, message) do
       {:ok, conn, responses} ->
-        handle_http(responses, %{state | conn: conn})
+        handle_responses(responses, %{state | conn: conn})
 
+      # i think there's probably a race condition here...
       {:error, conn, error, responses} ->
         _ = handler.({:error, error})
-        handle_http(responses, %{state | conn: conn})
+        handle_responses(responses, reschedule_resume(%{state | conn: conn}))
 
       :unknown ->
         {:stop, :unknown, state}
     end
   end
 
-  defp handle_http([response | rest], %Downloader{} = state) do
+  # schedules a message to be delivered based on retry args
+  @spec reschedule_resume(t()) :: resume_rescheduled()
+  defp reschedule_resume(%Downloader{retry_number: retry_number} = state) do
+    timer = Process.send_after(self(), :resume, state.retry_args.time_between_retries)
+    %Downloader{state | retry_timeout: timer, retry_number: retry_number + 1}
+  end
+
+  defp handle_responses([response | rest], %Downloader{} = state) do
     case handle_response(response, state) do
       # this `status != nil` thing seems really weird. Shouldn't be needed.
       %Downloader{status: status} = state when status != nil and status >= 400 ->
         {:stop, {:http_error, status}, state}
 
       state ->
-        handle_http(rest, state)
+        handle_responses(rest, state)
     end
   end
 
-  defp handle_http(
+  defp handle_responses(
          [],
          %Downloader{downloaded_length: downloaded, content_length: downloaded} = state
        )
@@ -158,8 +216,8 @@ defmodule NervesHubFwup.Downloader do
     {:stop, :normal, state}
   end
 
-  defp handle_http([], %Downloader{} = state) do
-    {:noreply, state}
+  defp handle_responses([], %Downloader{} = state) do
+    {:noreply, state, state.retry_args.idle_timeout}
   end
 
   def handle_response(
@@ -170,7 +228,7 @@ defmodule NervesHubFwup.Downloader do
     %Downloader{state | status: status}
   end
 
-  # the handle_http/2 function checks this value again
+  # the handle_responses/2 function checks this value again because this function only handles state
   def handle_response(
         {:status, request_ref, status},
         %Downloader{request_ref: request_ref} = state
@@ -198,12 +256,9 @@ defmodule NervesHubFwup.Downloader do
     location = fetch_location(headers)
     Logger.info("Redirecting to #{location}")
 
-    case resume_download(location, %Downloader{
-           state
-           | retry_number: 0,
-             downloaded_length: 0,
-             content_length: 0
-         }) do
+    state = reset(state)
+
+    case resume_download(location, state) do
       {:ok, %Downloader{} = state} ->
         state
 
@@ -253,6 +308,15 @@ defmodule NervesHubFwup.Downloader do
   # ignore other messages when redirecting
   def handle_response(_, %Downloader{status: nil} = state) do
     state
+  end
+
+  defp reset(%Downloader{} = state) do
+    %Downloader{
+      state
+      | retry_number: 0,
+        downloaded_length: 0,
+        content_length: 0
+    }
   end
 
   @spec resume_download(URI.t(), t()) ::

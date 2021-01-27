@@ -1,4 +1,4 @@
-defmodule NervesHubFwup.UpdateManager do
+defmodule NervesHubLinkCommon.UpdateManager do
   @moduledoc """
   GenServer responsible for brokering messages between:
     * an external controlling process
@@ -10,7 +10,7 @@ defmodule NervesHubFwup.UpdateManager do
 
   require Logger
   use GenServer
-  alias NervesHubFwup.{Args, Downloader}
+  alias NervesHubLinkCommon.{Args, Downloader}
 
   defmodule State do
     @type status ::

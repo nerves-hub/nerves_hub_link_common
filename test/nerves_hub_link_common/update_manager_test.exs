@@ -1,7 +1,7 @@
-defmodule NervesHubFwup.UpdateManagerTest do
+defmodule NervesHubLinkCommon.UpdateManagerTest do
   use ExUnit.Case
-  alias NervesHubFwup.{Args, UpdateManager}
-  alias NervesHubFwup.Support.FWUPStreamPlug
+  alias NervesHubLinkCommon.{Args, UpdateManager}
+  alias NervesHubLinkCommon.Support.FWUPStreamPlug
 
   describe "fwup stream" do
     setup do

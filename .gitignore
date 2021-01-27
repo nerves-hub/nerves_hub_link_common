@@ -20,5 +20,5 @@ erl_crash.dump
 *.ez
 
 # Ignore package tarball (built via "mix hex.build").
-nerves_hub_fwup-*.tar
+nerves_hub_link_common-*.tar
 

@@ -1,4 +1,4 @@
-defmodule NervesHubFwup.Downloader do
+defmodule NervesHubLinkCommon.Downloader do
   @moduledoc """
   Handles downloading files via HTTP.
   internally caches several interesting properties about
@@ -18,7 +18,7 @@ defmodule NervesHubFwup.Downloader do
   require Logger
   use GenServer
 
-  alias NervesHubFwup.Downloader
+  alias NervesHubLinkCommon.Downloader
 
   defmodule RetryArgs do
     # todo - maybe we should make this a function of download size
@@ -104,7 +104,7 @@ defmodule NervesHubFwup.Downloader do
         ...> :complete -> send pid, :complete
         ...> end
         #Function<44.97283095/1 in :erl_eval.expr/5>
-        iex> NervesHubFwup.Downloader.start_download("https://httpbin.com/", fun)
+        iex> NervesHubLinkCommon.Downloader.start_download("https://httpbin.com/", fun)
         {:ok, #PID<0.111.0>}
         iex> flush()
         :complete

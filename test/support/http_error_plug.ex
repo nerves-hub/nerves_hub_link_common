@@ -1,4 +1,4 @@
-defmodule NervesHubFwup.Support.HTTPErrorPlug do
+defmodule NervesHubLinkCommon.Support.HTTPErrorPlug do
   @moduledoc """
   """
 

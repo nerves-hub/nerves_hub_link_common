@@ -1,4 +1,4 @@
-defmodule NervesHubFwup.Args do
+defmodule NervesHubLinkCommon.Args do
   defstruct fwup_public_keys: [],
             fwup_devpath: "/dev/mmcblk0",
             handle_fwup_message: nil,
@@ -14,7 +14,7 @@ defmodule NervesHubFwup.Args do
 
   @type update_available_fun() :: (map() -> any)
 
-  @type t :: %NervesHubFwup.Args{
+  @type t :: %NervesHubLinkCommon.Args{
           fwup_public_keys: [String.t()],
           fwup_devpath: Path.t(),
           handle_fwup_message: handle_fwup_message_fun,

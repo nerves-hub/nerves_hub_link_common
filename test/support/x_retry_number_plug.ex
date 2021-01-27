@@ -1,4 +1,4 @@
-defmodule NervesHubFwup.Support.XRetryNumberPlug do
+defmodule NervesHubLinkCommon.Support.XRetryNumberPlug do
   @moduledoc """
   Plug sends dat in chunks, halting halfway thru to be resumed by a client
 

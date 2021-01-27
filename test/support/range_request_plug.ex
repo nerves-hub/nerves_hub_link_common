@@ -1,4 +1,4 @@
-defmodule NervesHubFwup.Support.RangeRequestPlug do
+defmodule NervesHubLinkCommon.Support.RangeRequestPlug do
   @moduledoc """
   Sends chunked response according to the value of the range-request header
   """

@@ -1,7 +1,7 @@
-defmodule NervesHubFwup.DownloaderTest do
+defmodule NervesHubLinkCommon.DownloaderTest do
   use ExUnit.Case
 
-  alias NervesHubFwup.Support.{
+  alias NervesHubLinkCommon.Support.{
     XRetryNumberPlug,
     RedirectPlug,
     RangeRequestPlug,
@@ -9,7 +9,7 @@ defmodule NervesHubFwup.DownloaderTest do
     IdleTimeoutPlug
   }
 
-  alias NervesHubFwup.{Downloader, Downloader.RetryArgs}
+  alias NervesHubLinkCommon.{Downloader, Downloader.RetryArgs}
 
   @short_retry_args %RetryArgs{
     max_disconnects: 10,

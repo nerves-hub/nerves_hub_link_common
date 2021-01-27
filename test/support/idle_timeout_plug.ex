@@ -1,4 +1,4 @@
-defmodule NervesHubFwup.Support.IdleTimeoutPlug do
+defmodule NervesHubLinkCommon.Support.IdleTimeoutPlug do
   @moduledoc """
   """
 

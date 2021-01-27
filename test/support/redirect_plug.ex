@@ -1,4 +1,4 @@
-defmodule NervesHubFwup.Support.RedirectPlug do
+defmodule NervesHubLinkCommon.Support.RedirectPlug do
   @moduledoc """
   """
 

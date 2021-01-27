@@ -1,4 +1,4 @@
-defmodule NervesHubFwup.Support.FWUPStreamPlug do
+defmodule NervesHubLinkCommon.Support.FWUPStreamPlug do
   @moduledoc """
   """
 

@@ -21,7 +21,8 @@ defmodule NervesHubLinkCommon.MixProject do
       {:mint, "~> 1.2"},
       {:castore, "~> 0.1.0"},
       {:fwup, "~> 0.4.0"},
-      {:plug_cowboy, "~> 2.0", only: :test}
+      {:plug_cowboy, "~> 2.0", only: :test},
+      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false}
     ]
   end
 end

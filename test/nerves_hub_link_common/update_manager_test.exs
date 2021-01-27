@@ -1,6 +1,6 @@
 defmodule NervesHubLinkCommon.UpdateManagerTest do
   use ExUnit.Case
-  alias NervesHubLinkCommon.{Args, UpdateManager}
+  alias NervesHubLinkCommon.{FwupConfig, UpdateManager}
   alias NervesHubLinkCommon.Support.FWUPStreamPlug
 
   describe "fwup stream" do
@@ -24,13 +24,13 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
       fwup_fun = &send(test_pid, {:fwup, &1})
       update_available_fun = fn _ -> :apply end
 
-      args = %Args{
+      fwup_config = %FwupConfig{
         fwup_devpath: devpath,
         handle_fwup_message: fwup_fun,
         update_available: update_available_fun
       }
 
-      {:ok, manager} = UpdateManager.start_link(args)
+      {:ok, manager} = UpdateManager.start_link(fwup_config)
       assert UpdateManager.apply_update(manager, update_payload) == {:updating, 0}
 
       assert_receive {:fwup, {:progress, 0}}
@@ -54,13 +54,13 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
         end
       end
 
-      args = %Args{
+      fwup_config = %FwupConfig{
         fwup_devpath: devpath,
         handle_fwup_message: fwup_fun,
         update_available: update_available_fun
       }
 
-      {:ok, manager} = UpdateManager.start_link(args)
+      {:ok, manager} = UpdateManager.start_link(fwup_config)
       assert UpdateManager.apply_update(manager, update_payload) == :update_rescheduled
       assert_received :rescheduled
       refute_received {:fwup, _}

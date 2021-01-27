@@ -9,9 +9,9 @@ defmodule NervesHubLinkCommon.DownloaderTest do
     IdleTimeoutPlug
   }
 
-  alias NervesHubLinkCommon.{Downloader, Downloader.RetryArgs}
+  alias NervesHubLinkCommon.{Downloader, Downloader.RetryConfig}
 
-  @short_retry_args %RetryArgs{
+  @short_retry_args %RetryConfig{
     max_disconnects: 10,
     idle_timeout: 60_000,
     max_timeout: 3_600_000,
@@ -24,7 +24,7 @@ defmodule NervesHubLinkCommon.DownloaderTest do
     test_pid = self()
     handler_fun = &send(test_pid, &1)
 
-    retry_args = %RetryArgs{
+    retry_args = %RetryConfig{
       max_disconnects: 2,
       time_between_retries: 1
     }
@@ -42,7 +42,7 @@ defmodule NervesHubLinkCommon.DownloaderTest do
     test_pid = self()
     handler_fun = &send(test_pid, &1)
 
-    retry_args = %RetryArgs{
+    retry_args = %RetryConfig{
       max_timeout: 10
     }
 
@@ -68,7 +68,7 @@ defmodule NervesHubLinkCommon.DownloaderTest do
       test_pid = self()
       handler_fun = &send(test_pid, &1)
 
-      retry_args = %RetryArgs{
+      retry_args = %RetryConfig{
         idle_timeout: 100,
         time_between_retries: 10
       }

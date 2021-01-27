@@ -18,27 +18,7 @@ defmodule NervesHubLinkCommon.Downloader do
   require Logger
   use GenServer
 
-  alias NervesHubLinkCommon.Downloader
-
-  defmodule RetryArgs do
-    # todo - maybe we should make this a function of download size
-    defstruct [
-      # stop trying after this many disconnects
-      max_disconnects: 10,
-
-      # attempt a retry after this time
-      # if no data comes in after this amount of time, disconnect and retry
-      idle_timeout: 60_000,
-
-      # if the total time since this server has started reaches this time,
-      # stop trying, give up, disconnect, etc
-      # started right when the gen_server starts
-      max_timeout: 3_600_000,
-
-      # don't bother retrying until this time has passed
-      time_between_retries: 15_000
-    ]
-  end
+  alias NervesHubLinkCommon.{Downloader, Downloader.RetryConfig}
 
   defstruct uri: nil,
             conn: nil,
@@ -55,12 +35,7 @@ defmodule NervesHubLinkCommon.Downloader do
 
   @type handler_event :: {:data, binary()} | {:error, any()} | :complete
   @type event_handler_fun :: (handler_event -> any())
-  @type retry_args :: %RetryArgs{
-          max_disconnects: non_neg_integer(),
-          idle_timeout: timeout(),
-          max_timeout: timeout(),
-          time_between_retries: non_neg_integer()
-        }
+  @type retry_args :: RetryConfig.t()
 
   @type t :: %Downloader{
           uri: nil | URI.t(),
@@ -111,15 +86,15 @@ defmodule NervesHubLinkCommon.Downloader do
   """
   @spec start_download(String.t() | URI.t(), event_handler_fun()) :: GenServer.on_start()
   def start_download(url, fun) when is_function(fun, 1) do
-    GenServer.start_link(__MODULE__, [URI.parse(url), fun, %RetryArgs{}])
+    GenServer.start_link(__MODULE__, [URI.parse(url), fun, %RetryConfig{}])
   end
 
-  def start_download(url, fun, %RetryArgs{} = retry_args) when is_function(fun, 1) do
+  def start_download(url, fun, %RetryConfig{} = retry_args) when is_function(fun, 1) do
     GenServer.start_link(__MODULE__, [URI.parse(url), fun, retry_args])
   end
 
   @impl GenServer
-  def init([%URI{} = uri, fun, %RetryArgs{} = retry_args]) do
+  def init([%URI{} = uri, fun, %RetryConfig{} = retry_args]) do
     timer = Process.send_after(self(), :max_timeout, retry_args.max_timeout)
 
     state =
@@ -156,7 +131,7 @@ defmodule NervesHubLinkCommon.Downloader do
         :resume,
         %Downloader{
           retry_number: retry_number,
-          retry_args: %RetryArgs{max_disconnects: retry_number}
+          retry_args: %RetryConfig{max_disconnects: retry_number}
         } = state
       ) do
     {:stop, :max_disconnects_reached, state}

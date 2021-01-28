@@ -13,7 +13,7 @@ defmodule NervesHubLinkCommon.Support.IdleTimeoutPlug do
   def call(conn, _opts) do
     retry_number = find_x_retry_number_header(conn.req_headers)
 
-    # get's incremented every retry, so doing it on 0 should only
+    # gets incremented every retry, so doing it on 0 should only
     # sleep on the first connect
     # (something something stateless http....)
     if retry_number == 0 do

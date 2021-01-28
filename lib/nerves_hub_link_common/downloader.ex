@@ -111,14 +111,14 @@ defmodule NervesHubLinkCommon.Downloader do
 
   @impl GenServer
   # this message is scheduled during init/1
-  # it is a extreme condition where regardless of download attemts,
+  # it is a extreme condition where regardless of download attempts,
   # idle timeouts etc, this entire process has lived for TOO long.
   def handle_info(:max_timeout, %Downloader{} = state) do
     {:stop, :max_timeout_reached, state}
   end
 
-  # this message is delievered after `state.retry_args.idle_timeout`
-  # milliseconds have occured. It indicates that many milliseconds have elapsed since
+  # this message is delivered after `state.retry_args.idle_timeout`
+  # milliseconds have occurred. It indicates that many milliseconds have elapsed since
   # the last "chunk" from the HTTP server
   def handle_info(:timeout, %Downloader{handler_fun: handler} = state) do
     _ = handler.({:error, :idle_timeout})

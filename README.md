@@ -1,5 +1,8 @@
 # NervesHubLinkCommon
 
+[![Hex version](https://img.shields.io/hexpm/v/nerves_hub_link_common.svg "Hex version")](https://hex.pm/packages/nerves_hub_link_common)
+[![CircleCI](https://circleci.com/gh/nerves-hub/nerves_hub_link_common.svg?style=svg)](https://circleci.com/gh/nerves-hub/nerves_hub_link_common)
+
 Common library that should be shared between
 the [websocket](https://github.com/nerves-hub/nerves_hub_link) and [http](https://github.com/nerves-hub/nerves_hub_link_http)
 connections.

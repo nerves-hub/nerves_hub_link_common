@@ -354,5 +354,5 @@ defmodule NervesHubLinkCommon.Downloader do
     do: [{"X-Retry-Number", "#{retry_number}"} | headers]
 
   defp add_user_agent_header(headers, _),
-    do: [{"User-Agent", "Nerves HTTP Client 0.1.0"} | headers]
+    do: [{"User-Agent", "NHL/#{Application.spec(:nerves_hub_link_common)[:vsn]}"} | headers]
 end

@@ -302,15 +302,19 @@ defmodule NervesHubLinkCommon.Downloader do
        )
        when scheme in ["https", "http"] do
     request_headers =
-      [{"Content-Type", "application/octet-stream"}]
+      [{"content-type", "application/octet-stream"}]
       |> add_range_header(state)
       |> add_retry_number_header(state)
       |> add_user_agent_header(state)
 
+    # mint doesn't accept the query as the http body, so it must be encoded
+    # like this. There may be a better way to do this..
+    path = if query, do: "#{path}?#{query}", else: path
+
     Logger.info("Resuming download attempt number #{state.retry_number} #{uri}")
 
     with {:ok, conn} <- Mint.HTTP.connect(String.to_existing_atom(scheme), host, port),
-         {:ok, conn, request_ref} <- Mint.HTTP.request(conn, "GET", path, request_headers, query) do
+         {:ok, conn, request_ref} <- Mint.HTTP.request(conn, "GET", path, request_headers, nil) do
       {:ok,
        %Downloader{
          state

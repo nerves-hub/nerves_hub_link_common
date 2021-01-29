@@ -13,7 +13,11 @@ defmodule NervesHubLinkCommon.UpdateManager do
   alias NervesHubLinkCommon.{FwupConfig, Downloader}
 
   defmodule State do
-    @moduledoc false
+    @moduledoc """
+    Structure for the state of the `UpdateManager` server.
+    Contains types that describe status and different states the
+    `UpdateManager` can be in
+    """
 
     @type status ::
             :idle

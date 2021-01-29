@@ -23,9 +23,9 @@ defmodule NervesHubLinkCommon.Support.IdleTimeoutPlug do
     send_resp(conn, 200, "content")
   end
 
-  def find_x_retry_number_header([{"x-retry-number", retry_number} | _]),
+  defp find_x_retry_number_header([{"x-retry-number", retry_number} | _]),
     do: String.to_integer(retry_number)
 
-  def find_x_retry_number_header([_ | rest]), do: find_x_retry_number_header(rest)
-  def find_x_retry_number_header([]), do: raise("Could not find x-retry-number header")
+  defp find_x_retry_number_header([_ | rest]), do: find_x_retry_number_header(rest)
+  defp find_x_retry_number_header([]), do: raise("Could not find x-retry-number header")
 end

@@ -15,7 +15,8 @@ defmodule NervesHubLinkCommon.DownloaderTest do
     max_disconnects: 10,
     idle_timeout: 60_000,
     max_timeout: 3_600_000,
-    time_between_retries: 10
+    time_between_retries: 10,
+    worst_case_download_speed: 30_000
   }
 
   @failure_url "http://localhost/this_should_fail"

@@ -10,7 +10,13 @@ defmodule NervesHubLinkCommon.UpdateManager do
 
   require Logger
   use GenServer
-  alias NervesHubLinkCommon.{FwupConfig, Downloader, Downloader.RetryConfig}
+
+  alias NervesHubLinkCommon.{
+    Downloader,
+    Downloader.RetryConfig,
+    FwupConfig,
+    UpdateAvailable
+  }
 
   defmodule State do
     @moduledoc """
@@ -63,8 +69,9 @@ defmodule NervesHubLinkCommon.UpdateManager do
   NervesHub. the map must contain a `"firmware_url"` key.
   """
   @spec apply_update(GenServer.server(), map()) :: State.status()
-  def apply_update(manager \\ __MODULE__, %{"firmware_url" => _} = update) do
-    GenServer.call(manager, {:apply_update, update})
+  def apply_update(manager \\ __MODULE__, %{"firmware_url" => _} = params) do
+    update_available = UpdateAvailable.parse(params)
+    GenServer.call(manager, {:apply_update, update_available})
   end
 
   @doc """
@@ -102,7 +109,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
   end
 
   @impl GenServer
-  def handle_call({:apply_update, update}, _from, %State{} = state) do
+  def handle_call({:apply_update, %UpdateAvailable{} = update}, _from, %State{} = state) do
     state = maybe_update_firmware(update, state)
     {:reply, state.status, state}
   end
@@ -155,7 +162,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
     {:noreply, state}
   end
 
-  @spec maybe_update_firmware(map(), State.t()) ::
+  @spec maybe_update_firmware(UpdateAvailable.t(), State.t()) ::
           State.download_started() | State.download_rescheduled() | State.t()
   defp maybe_update_firmware(_data, %State{status: {:updating, _percent}} = state) do
     # Received an update message from NervesHub, but we're already in progress.
@@ -167,7 +174,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
     state
   end
 
-  defp maybe_update_firmware(%{"firmware_url" => _url} = data, %State{} = state) do
+  defp maybe_update_firmware(%UpdateAvailable{} = data, %State{} = state) do
     # Cancel an existing timer if it exists.
     # This prevents rescheduled updates`
     # from compounding.
@@ -200,14 +207,15 @@ defmodule NervesHubLinkCommon.UpdateManager do
     %{state | update_reschedule_timer: nil}
   end
 
-  @spec start_fwup_stream(map(), State.t()) :: State.download_started()
-  defp start_fwup_stream(%{"firmware_url" => url}, state) do
+  @spec start_fwup_stream(UpdateAvailable.t(), State.t()) :: State.download_started()
+  defp start_fwup_stream(%UpdateAvailable{} = update, state) do
     pid = self()
     fun = &send(pid, {:download, &1})
 
     with {:ok, fwup} <- Fwup.stream(pid, fwup_args(state.fwup_config)),
-         {:ok, download} <- Downloader.start_download(url, fun, state.retry_config) do
-      Logger.info("[NervesHubLink] Downloading firmware: #{url}")
+         {:ok, download} <-
+           Downloader.start_download(update.firmware_url, fun, state.retry_config) do
+      Logger.info("[NervesHubLink] Downloading firmware: #{update.firmware_url}")
       %State{state | status: {:updating, 0}, download: download, fwup: fwup}
     end
   end

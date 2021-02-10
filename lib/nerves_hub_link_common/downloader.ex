@@ -18,7 +18,11 @@ defmodule NervesHubLinkCommon.Downloader do
   require Logger
   use GenServer
 
-  alias NervesHubLinkCommon.{Downloader, Downloader.RetryConfig, Downloader.TimeoutCalculation}
+  alias NervesHubLinkCommon.{
+    Downloader,
+    Downloader.RetryConfig,
+    Downloader.TimeoutCalculation
+  }
 
   defstruct uri: nil,
             conn: nil,

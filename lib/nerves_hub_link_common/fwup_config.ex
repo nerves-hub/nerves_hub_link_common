@@ -3,6 +3,8 @@ defmodule NervesHubLinkCommon.FwupConfig do
   Config structure responsible for handling callbacks from FWUP,
   applying a fwupdate, and storing fwup task configuration
   """
+  alias NervesHubLinkCommon.UpdateAvailable
+
   defstruct fwup_public_keys: [],
             fwup_devpath: "/dev/mmcblk0",
             handle_fwup_message: nil,
@@ -25,7 +27,8 @@ defmodule NervesHubLinkCommon.FwupConfig do
   @typedoc """
   Called when an update has been dispatched via `NervesHubLinkCommon.UpdateManager.apply_update/2`
   """
-  @type update_available_fun() :: (map() -> :ignore | {:reschedule, timeout()} | :apply)
+  @type update_available_fun() ::
+          (UpdateAvailable.t() -> :ignore | {:reschedule, timeout()} | :apply)
 
   @type t :: %__MODULE__{
           fwup_public_keys: [String.t()],

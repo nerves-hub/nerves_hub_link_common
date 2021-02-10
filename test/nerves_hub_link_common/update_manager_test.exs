@@ -3,6 +3,8 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
   alias NervesHubLinkCommon.{FwupConfig, UpdateManager}
   alias NervesHubLinkCommon.Support.FWUPStreamPlug
 
+  @retry_config %NervesHubLinkCommon.Downloader.RetryConfig{}
+
   describe "fwup stream" do
     setup do
       port = 5000
@@ -30,7 +32,7 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
         update_available: update_available_fun
       }
 
-      {:ok, manager} = UpdateManager.start_link(fwup_config)
+      {:ok, manager} = UpdateManager.start_link(fwup_config, @retry_config)
       assert UpdateManager.apply_update(manager, update_payload) == {:updating, 0}
 
       assert_receive {:fwup, {:progress, 0}}
@@ -60,7 +62,7 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
         update_available: update_available_fun
       }
 
-      {:ok, manager} = UpdateManager.start_link(fwup_config)
+      {:ok, manager} = UpdateManager.start_link(fwup_config, @retry_config)
       assert UpdateManager.apply_update(manager, update_payload) == :update_rescheduled
       assert_received :rescheduled
       refute_received {:fwup, _}

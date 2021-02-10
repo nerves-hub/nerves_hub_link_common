@@ -91,11 +91,8 @@ defmodule NervesHubLinkCommon.Downloader do
         iex> flush()
         :complete
   """
-  @spec start_download(String.t() | URI.t(), event_handler_fun()) :: GenServer.on_start()
-  def start_download(url, fun) when is_function(fun, 1) do
-    GenServer.start_link(__MODULE__, [URI.parse(url), fun, %RetryConfig{}])
-  end
-
+  @spec start_download(String.t() | URI.t(), event_handler_fun(), RetryConfig.t()) ::
+          GenServer.on_start()
   def start_download(url, fun, %RetryConfig{} = retry_args) when is_function(fun, 1) do
     GenServer.start_link(__MODULE__, [URI.parse(url), fun, retry_args])
   end

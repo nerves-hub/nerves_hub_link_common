@@ -10,7 +10,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
 
   require Logger
   use GenServer
-  alias NervesHubLinkCommon.{FwupConfig, Downloader}
+  alias NervesHubLinkCommon.{FwupConfig, Downloader, Downloader.RetryConfig}
 
   defmodule State do
     @moduledoc """
@@ -30,7 +30,8 @@ defmodule NervesHubLinkCommon.UpdateManager do
             update_reschedule_timer: nil | :timer.tref(),
             download: nil | GenServer.server(),
             fwup: nil | GenServer.server(),
-            fwup_config: FwupConfig.t()
+            fwup_config: FwupConfig.t(),
+            retry_config: RetryConfig.t()
           }
 
     @type download_started :: %__MODULE__{
@@ -53,7 +54,8 @@ defmodule NervesHubLinkCommon.UpdateManager do
               update_reschedule_timer: nil,
               fwup: nil,
               download: nil,
-              fwup_config: nil
+              fwup_config: nil,
+              retry_config: nil
   end
 
   @doc """
@@ -74,22 +76,29 @@ defmodule NervesHubLinkCommon.UpdateManager do
   end
 
   @doc false
-  def child_spec(%FwupConfig{} = args) do
+  def child_spec(%FwupConfig{} = fwup_config) do
     %{
-      start: {__MODULE__, :start_link, [args, [name: __MODULE__]]},
+      start: {__MODULE__, :start_link, [fwup_config, %RetryConfig{}, [name: __MODULE__]]},
+      id: __MODULE__
+    }
+  end
+
+  def child_spec(%FwupConfig{} = fwup_config, %RetryConfig{} = retry_config) do
+    %{
+      start: {__MODULE__, :start_link, [fwup_config, retry_config, [name: __MODULE__]]},
       id: __MODULE__
     }
   end
 
   @doc false
-  def start_link(%FwupConfig{} = args, opts \\ []) do
-    GenServer.start_link(__MODULE__, args, opts)
+  def start_link(%FwupConfig{} = fwup_config, %RetryConfig{} = retry_config, opts \\ []) do
+    GenServer.start_link(__MODULE__, {fwup_config, retry_config}, opts)
   end
 
   @impl GenServer
-  def init(%FwupConfig{} = fwup_config) do
+  def init({%FwupConfig{} = fwup_config, %RetryConfig{} = retry_config}) do
     fwup_config = FwupConfig.validate!(fwup_config)
-    {:ok, %State{fwup_config: fwup_config}}
+    {:ok, %State{fwup_config: fwup_config, retry_config: retry_config}}
   end
 
   @impl GenServer
@@ -195,10 +204,12 @@ defmodule NervesHubLinkCommon.UpdateManager do
   defp start_fwup_stream(%{"firmware_url" => url}, state) do
     pid = self()
     fun = &send(pid, {:download, &1})
-    {:ok, download} = Downloader.start_download(url, fun)
-    {:ok, fwup} = Fwup.stream(pid, fwup_args(state.fwup_config))
-    Logger.info("[NervesHubLink] Downloading firmware: #{url}")
-    %State{state | status: {:updating, 0}, download: download, fwup: fwup}
+
+    with {:ok, fwup} <- Fwup.stream(pid, fwup_args(state.fwup_config)),
+         {:ok, download} <- Downloader.start_download(url, fun, state.retry_config) do
+      Logger.info("[NervesHubLink] Downloading firmware: #{url}")
+      %State{state | status: {:updating, 0}, download: download, fwup: fwup}
+    end
   end
 
   @spec fwup_args(FwupConfig.t()) :: [String.t()]

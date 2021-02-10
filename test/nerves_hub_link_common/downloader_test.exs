@@ -139,7 +139,7 @@ defmodule NervesHubLinkCommon.DownloaderTest do
     test "follows redirects", %{url: url} do
       test_pid = self()
       handler_fun = &send(test_pid, &1)
-      {:ok, _download} = Downloader.start_download(url, handler_fun)
+      {:ok, _download} = Downloader.start_download(url, handler_fun, %RetryConfig{})
       refute_receive {:error, _}
       assert_receive {:data, "redirected"}
     end

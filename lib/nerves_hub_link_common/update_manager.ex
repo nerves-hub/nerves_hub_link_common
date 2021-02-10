@@ -10,7 +10,9 @@ defmodule NervesHubLinkCommon.UpdateManager do
 
   require Logger
   use GenServer
-  alias NervesHubLinkCommon.{FwupConfig, Downloader}
+
+  alias NervesHubLinkCommon.{Downloader, FwupConfig}
+  alias NervesHubLinkCommon.Message.UpdateInfo
 
   defmodule State do
     @moduledoc """
@@ -60,9 +62,9 @@ defmodule NervesHubLinkCommon.UpdateManager do
   Must be called when an update payload is dispatched from
   NervesHub. the map must contain a `"firmware_url"` key.
   """
-  @spec apply_update(GenServer.server(), map()) :: State.status()
-  def apply_update(manager \\ __MODULE__, %{"firmware_url" => _} = update) do
-    GenServer.call(manager, {:apply_update, update})
+  @spec apply_update(GenServer.server(), UpdateInfo.t()) :: State.status()
+  def apply_update(manager \\ __MODULE__, %UpdateInfo{} = update_info) do
+    GenServer.call(manager, {:apply_update, update_info})
   end
 
   @doc """
@@ -93,7 +95,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
   end
 
   @impl GenServer
-  def handle_call({:apply_update, update}, _from, %State{} = state) do
+  def handle_call({:apply_update, %UpdateInfo{} = update}, _from, %State{} = state) do
     state = maybe_update_firmware(update, state)
     {:reply, state.status, state}
   end
@@ -146,14 +148,13 @@ defmodule NervesHubLinkCommon.UpdateManager do
     {:noreply, state}
   end
 
-  @spec maybe_update_firmware(map(), State.t()) ::
+  @spec maybe_update_firmware(UpdateInfo.t(), State.t()) ::
           State.download_started() | State.download_rescheduled() | State.t()
-  defp maybe_update_firmware(%{update_available: false}, %State{} = state) do
-    # if the `update_available` key is false, bail early. There is no update
-    state
-  end
 
-  defp maybe_update_firmware(_data, %State{status: {:updating, _percent}} = state) do
+  defp maybe_update_firmware(
+         %UpdateInfo{} = _update_info,
+         %State{status: {:updating, _percent}} = state
+       ) do
     # Received an update message from NervesHub, but we're already in progress.
     # It could be because the deployment/device was edited making a duplicate
     # update message or a new deployment was created. Either way, lets not
@@ -163,7 +164,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
     state
   end
 
-  defp maybe_update_firmware(%{"firmware_url" => _url} = data, %State{} = state) do
+  defp maybe_update_firmware(%UpdateInfo{} = update_info, %State{} = state) do
     # Cancel an existing timer if it exists.
     # This prevents rescheduled updates`
     # from compounding.
@@ -172,15 +173,16 @@ defmodule NervesHubLinkCommon.UpdateManager do
     # possibly offload update decision to an external module.
     # This will allow application developers
     # to control exactly when an update is applied.
-    case state.fwup_config.update_available.(data) do
+    # note: update_available is a behaviour function
+    case state.fwup_config.update_available.(update_info) do
       :apply ->
-        start_fwup_stream(data, state)
+        start_fwup_stream(update_info, state)
 
       :ignore ->
         state
 
       {:reschedule, ms} ->
-        timer = Process.send_after(self(), {:update_reschedule, data}, ms)
+        timer = Process.send_after(self(), {:update_reschedule, update_info}, ms)
         Logger.info("[NervesHubLink] rescheduling firmware update in #{ms} milliseconds")
         %{state | status: :update_rescheduled, update_reschedule_timer: timer}
     end
@@ -196,13 +198,13 @@ defmodule NervesHubLinkCommon.UpdateManager do
     %{state | update_reschedule_timer: nil}
   end
 
-  @spec start_fwup_stream(map(), State.t()) :: State.download_started()
-  defp start_fwup_stream(%{"firmware_url" => url}, state) do
+  @spec start_fwup_stream(UpdateInfo.t(), State.t()) :: State.download_started()
+  defp start_fwup_stream(%UpdateInfo{} = update_info, state) do
     pid = self()
     fun = &send(pid, {:download, &1})
-    {:ok, download} = Downloader.start_download(url, fun)
+    {:ok, download} = Downloader.start_download(update_info.firmware_url, fun)
     {:ok, fwup} = Fwup.stream(pid, fwup_args(state.fwup_config))
-    Logger.info("[NervesHubLink] Downloading firmware: #{url}")
+    Logger.info("[NervesHubLink] Downloading firmware: #{update_info.firmware_url}")
     %State{state | status: {:updating, 0}, download: download, fwup: fwup}
   end
 

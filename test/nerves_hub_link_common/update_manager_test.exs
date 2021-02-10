@@ -1,5 +1,6 @@
 defmodule NervesHubLinkCommon.UpdateManagerTest do
   use ExUnit.Case
+  alias NervesHubLinkCommon.Message.{UpdateInfo, FirmwareMetadata}
   alias NervesHubLinkCommon.{FwupConfig, UpdateManager}
   alias NervesHubLinkCommon.Support.FWUPStreamPlug
 
@@ -7,7 +8,11 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
     setup do
       port = 5000
       devpath = "/tmp/fwup_output"
-      update_payload = %{"firmware_url" => "http://localhost:#{port}/test.fw"}
+
+      update_payload = %UpdateInfo{
+        firmware_url: "http://localhost:#{port}/test.fw",
+        firmware_meta: %FirmwareMetadata{}
+      }
 
       {:ok, plug} =
         start_supervised(

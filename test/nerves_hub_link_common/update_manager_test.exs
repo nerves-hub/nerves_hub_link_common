@@ -9,7 +9,15 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
     setup do
       port = 5000
       devpath = "/tmp/fwup_output"
-      update_payload = %{"firmware_url" => "http://localhost:#{port}/test.fw"}
+
+      update_payload = %{
+        "update_available" => true,
+        "firmware_url" => "http://localhost:#{port}/test.fw",
+        "firmware_meta" => %{
+          # UUID technically the only field required here.
+          "uuid" => "db5cd77f-1491-444a-af36-020de700b2de"
+        }
+      }
 
       {:ok, plug} =
         start_supervised(

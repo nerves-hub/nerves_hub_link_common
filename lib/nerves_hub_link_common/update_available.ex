@@ -20,11 +20,10 @@ defmodule NervesHubLinkCommon.UpdateAvailable do
             author: String.t() | nil,
             description: String.t() | nil,
             fwup_version: Version.build() | nil,
-            id: Ecto.UUID.t(),
             misc: String.t() | nil,
             platform: String.t(),
             product: String.t(),
-            uuid: Ecto.UUID.t(),
+            uuid: String.t(),
             vcs_identifier: String.t() | nil,
             version: Version.build()
           }

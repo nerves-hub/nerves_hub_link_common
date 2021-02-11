@@ -3,11 +3,21 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
   alias NervesHubLinkCommon.{FwupConfig, UpdateManager}
   alias NervesHubLinkCommon.Support.FWUPStreamPlug
 
+  @retry_config %NervesHubLinkCommon.Downloader.RetryConfig{}
+
   describe "fwup stream" do
     setup do
       port = 5000
       devpath = "/tmp/fwup_output"
-      update_payload = %{"firmware_url" => "http://localhost:#{port}/test.fw"}
+
+      update_payload = %{
+        "update_available" => true,
+        "firmware_url" => "http://localhost:#{port}/test.fw",
+        "firmware_meta" => %{
+          # UUID technically the only field required here.
+          "uuid" => "db5cd77f-1491-444a-af36-020de700b2de"
+        }
+      }
 
       {:ok, plug} =
         start_supervised(
@@ -30,7 +40,7 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
         update_available: update_available_fun
       }
 
-      {:ok, manager} = UpdateManager.start_link(fwup_config)
+      {:ok, manager} = UpdateManager.start_link(fwup_config, @retry_config)
       assert UpdateManager.apply_update(manager, update_payload) == {:updating, 0}
 
       assert_receive {:fwup, {:progress, 0}}
@@ -60,7 +70,7 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
         update_available: update_available_fun
       }
 
-      {:ok, manager} = UpdateManager.start_link(fwup_config)
+      {:ok, manager} = UpdateManager.start_link(fwup_config, @retry_config)
       assert UpdateManager.apply_update(manager, update_payload) == :update_rescheduled
       assert_received :rescheduled
       refute_received {:fwup, _}

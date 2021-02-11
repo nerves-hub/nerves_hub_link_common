@@ -3,10 +3,13 @@ defmodule NervesHubLinkCommon.FwupConfig do
   Config structure responsible for handling callbacks from FWUP,
   applying a fwupdate, and storing fwup task configuration
   """
+  alias NervesHubLinkCommon.UpdateAvailable
+
   defstruct fwup_public_keys: [],
             fwup_devpath: "/dev/mmcblk0",
             handle_fwup_message: nil,
-            update_available: nil
+            update_available: nil,
+            journal_location: "/tmp/"
 
   @typedoc """
   `handle_fwup_message` will be called with this data
@@ -25,11 +28,13 @@ defmodule NervesHubLinkCommon.FwupConfig do
   @typedoc """
   Called when an update has been dispatched via `NervesHubLinkCommon.UpdateManager.apply_update/2`
   """
-  @type update_available_fun() :: (map() -> :ignore | {:reschedule, timeout()} | :apply)
+  @type update_available_fun() ::
+          (UpdateAvailable.t() -> :ignore | {:reschedule, timeout()} | :apply)
 
   @type t :: %__MODULE__{
           fwup_public_keys: [String.t()],
           fwup_devpath: Path.t(),
+          journal_location: Path.t(),
           handle_fwup_message: handle_fwup_message_fun,
           update_available: update_available_fun
         }
@@ -41,6 +46,7 @@ defmodule NervesHubLinkCommon.FwupConfig do
     |> validate_fwup_devpath!()
     |> validate_handle_fwup_message!()
     |> validate_update_available!()
+    |> validate_journal_location!()
   end
 
   defp validate_fwup_public_keys!(%__MODULE__{fwup_public_keys: list} = args) when is_list(list),
@@ -68,4 +74,10 @@ defmodule NervesHubLinkCommon.FwupConfig do
 
   defp validate_update_available!(%__MODULE__{}),
     do: raise(ArgumentError, message: "update_available function signature incorrect")
+
+  defp validate_journal_location!(%__MODULE__{journal_location: loc} = args) when is_binary(loc),
+    do: args
+
+  defp validate_journal_location!(%__MODULE__{}),
+    do: raise(ArgumentError, message: "invalid arg: journal_location")
 end

@@ -10,7 +10,14 @@ defmodule NervesHubLinkCommon.UpdateManager do
 
   require Logger
   use GenServer
-  alias NervesHubLinkCommon.{FwupConfig, Downloader}
+
+  alias NervesHubLinkCommon.{
+    Downloader,
+    Downloader.RetryConfig,
+    FwupConfig,
+    UpdateAvailable,
+    Journal
+  }
 
   defmodule State do
     @moduledoc """
@@ -30,7 +37,9 @@ defmodule NervesHubLinkCommon.UpdateManager do
             update_reschedule_timer: nil | :timer.tref(),
             download: nil | GenServer.server(),
             fwup: nil | GenServer.server(),
-            fwup_config: FwupConfig.t()
+            fwup_config: FwupConfig.t(),
+            retry_config: RetryConfig.t(),
+            journal: nil | Journal.t()
           }
 
     @type download_started :: %__MODULE__{
@@ -38,7 +47,8 @@ defmodule NervesHubLinkCommon.UpdateManager do
             update_reschedule_timer: nil,
             download: GenServer.server(),
             fwup: GenServer.server(),
-            fwup_config: FwupConfig.t()
+            fwup_config: FwupConfig.t(),
+            journal: Journal.t()
           }
 
     @type download_rescheduled :: %__MODULE__{
@@ -53,7 +63,9 @@ defmodule NervesHubLinkCommon.UpdateManager do
               update_reschedule_timer: nil,
               fwup: nil,
               download: nil,
-              fwup_config: nil
+              fwup_config: nil,
+              retry_config: nil,
+              journal: nil
   end
 
   @doc """
@@ -61,8 +73,9 @@ defmodule NervesHubLinkCommon.UpdateManager do
   NervesHub. the map must contain a `"firmware_url"` key.
   """
   @spec apply_update(GenServer.server(), map()) :: State.status()
-  def apply_update(manager \\ __MODULE__, %{"firmware_url" => _} = update) do
-    GenServer.call(manager, {:apply_update, update})
+  def apply_update(manager \\ __MODULE__, %{"firmware_url" => _} = params) do
+    update_available = UpdateAvailable.parse(params)
+    GenServer.call(manager, {:apply_update, update_available})
   end
 
   @doc """
@@ -74,26 +87,40 @@ defmodule NervesHubLinkCommon.UpdateManager do
   end
 
   @doc false
-  def child_spec(%FwupConfig{} = args) do
+  def child_spec(%FwupConfig{} = fwup_config) do
     %{
-      start: {__MODULE__, :start_link, [args, [name: __MODULE__]]},
+      start: {__MODULE__, :start_link, [fwup_config, %RetryConfig{}, [name: __MODULE__]]},
+      id: __MODULE__
+    }
+  end
+
+  def child_spec(%FwupConfig{} = fwup_config, %RetryConfig{} = retry_config) do
+    %{
+      start: {__MODULE__, :start_link, [fwup_config, retry_config, [name: __MODULE__]]},
       id: __MODULE__
     }
   end
 
   @doc false
-  def start_link(%FwupConfig{} = args, opts \\ []) do
-    GenServer.start_link(__MODULE__, args, opts)
+  def start_link(%FwupConfig{} = fwup_config, %RetryConfig{} = retry_config, opts \\ []) do
+    GenServer.start_link(__MODULE__, {fwup_config, retry_config}, opts)
   end
 
   @impl GenServer
-  def init(%FwupConfig{} = fwup_config) do
+  def init({%FwupConfig{} = fwup_config, %RetryConfig{} = retry_config}) do
     fwup_config = FwupConfig.validate!(fwup_config)
-    {:ok, %State{fwup_config: fwup_config}}
+    {:ok, %State{fwup_config: fwup_config, retry_config: retry_config}}
   end
 
   @impl GenServer
-  def handle_call({:apply_update, update}, _from, %State{} = state) do
+  def terminate(_, %State{journal: journal}) do
+    if journal do
+      Journal.close(journal)
+    end
+  end
+
+  @impl GenServer
+  def handle_call({:apply_update, %UpdateAvailable{} = update}, _from, %State{} = state) do
     state = maybe_update_firmware(update, state)
     {:reply, state.status, state}
   end
@@ -142,11 +169,19 @@ defmodule NervesHubLinkCommon.UpdateManager do
 
   # Data from the downloader is sent to fwup
   def handle_info({:download, {:data, data}}, state) do
-    _ = Fwup.Stream.send_chunk(state.fwup, data)
-    {:noreply, state}
+    with {:ok, journal} <- Journal.save_chunk(state.journal, data),
+         :ok <- Fwup.Stream.send_chunk(state.fwup, data) do
+      {:noreply, %{state | journal: journal}}
+    else
+      {:error, posix} ->
+        Logger.error("[NervesHubLink] Error journaling download data: #{posix}")
+        # forced to stop here because the journal and fwup stream need to remain in sync
+        # for the journaling backup system to work
+        {:stop, state}
+    end
   end
 
-  @spec maybe_update_firmware(map(), State.t()) ::
+  @spec maybe_update_firmware(UpdateAvailable.t(), State.t()) ::
           State.download_started() | State.download_rescheduled() | State.t()
   defp maybe_update_firmware(_data, %State{status: {:updating, _percent}} = state) do
     # Received an update message from NervesHub, but we're already in progress.
@@ -158,7 +193,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
     state
   end
 
-  defp maybe_update_firmware(%{"firmware_url" => _url} = data, %State{} = state) do
+  defp maybe_update_firmware(%UpdateAvailable{} = data, %State{} = state) do
     # Cancel an existing timer if it exists.
     # This prevents rescheduled updates`
     # from compounding.
@@ -191,14 +226,30 @@ defmodule NervesHubLinkCommon.UpdateManager do
     %{state | update_reschedule_timer: nil}
   end
 
-  @spec start_fwup_stream(map(), State.t()) :: State.download_started()
-  defp start_fwup_stream(%{"firmware_url" => url}, state) do
+  @spec start_fwup_stream(UpdateAvailable.t(), State.t()) :: State.download_started()
+  defp start_fwup_stream(
+         %UpdateAvailable{firmware_meta: %UpdateAvailable.FirmwareMetadata{uuid: uuid}} = update,
+         state
+       ) do
     pid = self()
     fun = &send(pid, {:download, &1})
-    {:ok, download} = Downloader.start_download(url, fun)
-    {:ok, fwup} = Fwup.stream(pid, fwup_args(state.fwup_config))
-    Logger.info("[NervesHubLink] Downloading firmware: #{url}")
-    %State{state | status: {:updating, 0}, download: download, fwup: fwup}
+
+    with {:ok, fwup} <- Fwup.stream(pid, fwup_args(state.fwup_config)),
+         {:ok, journal} <- Journal.open(Path.join(state.fwup_config.journal_location, uuid)),
+         :ok <- sync_fwup_with_journal(fwup, journal.chunks),
+         {:ok, download} <-
+           Downloader.start_download(update.firmware_url, fun, %{
+             state.retry_config
+             | content_length: journal.content_length
+           }) do
+      Logger.info("[NervesHubLink] Downloading firmware: #{update.firmware_url}")
+      %State{state | status: {:updating, 0}, download: download, fwup: fwup, journal: journal}
+    else
+      # not sure how to handle error case right now...
+      error ->
+        Logger.error("Failed to start fwup! #{inspect(error)}")
+        state
+    end
   end
 
   @spec fwup_args(FwupConfig.t()) :: [String.t()]
@@ -209,4 +260,14 @@ defmodule NervesHubLinkCommon.UpdateManager do
       args ++ ["--public-key", public_key]
     end)
   end
+
+  # Takes all the data form the journal and catches FWUP so that streamed messages
+  # will continue to be in sync
+  @spec sync_fwup_with_journal(GenServer.server(), [binary()]) :: :ok | no_return()
+  defp sync_fwup_with_journal(fwup, [chunk | rest]) do
+    :ok = Fwup.send_chunk(fwup, chunk)
+    sync_fwup_with_journal(fwup, rest)
+  end
+
+  defp sync_fwup_with_journal(_fwup, []), do: :ok
 end

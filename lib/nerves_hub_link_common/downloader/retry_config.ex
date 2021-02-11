@@ -24,7 +24,8 @@ defmodule NervesHubLinkCommon.Downloader.RetryConfig do
     # worst case average download speed in bits/second
     # This is used to calculate a "sensible" timeout that is shorter than `max_timeout`.
     # LTE Cat M1 modems sometimes top out at 32 kbps (30 kbps for some slack)
-    worst_case_download_speed: 30_000
+    worst_case_download_speed: 30_000,
+    content_length: 0
   ]
 
   @typedoc """
@@ -59,11 +60,18 @@ defmodule NervesHubLinkCommon.Downloader.RetryConfig do
   """
   @type worst_case_download_speed :: non_neg_integer()
 
+  @typedoc """
+  Gets translated into a range request header.
+  Useful for restarting downloads from a specific position
+  """
+  @type content_length() :: non_neg_integer()
+
   @type t :: %__MODULE__{
           max_disconnects: max_disconnects(),
           idle_timeout: idle_timeout(),
           max_timeout: max_timeout(),
           time_between_retries: time_between_retries(),
-          worst_case_download_speed: worst_case_download_speed()
+          worst_case_download_speed: worst_case_download_speed(),
+          content_length: content_length()
         }
 end

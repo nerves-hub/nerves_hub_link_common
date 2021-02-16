@@ -183,6 +183,11 @@ defmodule NervesHubLinkCommon.UpdateManager do
 
   @spec maybe_update_firmware(UpdateAvailable.t(), State.t()) ::
           State.download_started() | State.download_rescheduled() | State.t()
+  defp maybe_update_firmware(%UpdateAvailable{update_available: false}, %State{} = state) do
+    # if the `update_available` key is false, bail early. There is no update
+    state
+  end
+
   defp maybe_update_firmware(_data, %State{status: {:updating, _percent}} = state) do
     # Received an update message from NervesHub, but we're already in progress.
     # It could be because the deployment/device was edited making a duplicate

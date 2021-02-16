@@ -15,7 +15,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
     Downloader,
     Downloader.RetryConfig,
     FwupConfig,
-    UpdateAvailable,
+    UpdatePayload,
     Journal
   }
 
@@ -74,7 +74,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
   """
   @spec apply_update(GenServer.server(), map()) :: State.status()
   def apply_update(manager \\ __MODULE__, %{"firmware_url" => _} = params) do
-    update_available = UpdateAvailable.parse(params)
+    update_available = UpdatePayload.parse(params)
     GenServer.call(manager, {:apply_update, update_available})
   end
 
@@ -120,7 +120,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
   end
 
   @impl GenServer
-  def handle_call({:apply_update, %UpdateAvailable{} = update}, _from, %State{} = state) do
+  def handle_call({:apply_update, %UpdatePayload{} = update}, _from, %State{} = state) do
     state = maybe_update_firmware(update, state)
     {:reply, state.status, state}
   end
@@ -181,9 +181,9 @@ defmodule NervesHubLinkCommon.UpdateManager do
     end
   end
 
-  @spec maybe_update_firmware(UpdateAvailable.t(), State.t()) ::
+  @spec maybe_update_firmware(UpdatePayload.t(), State.t()) ::
           State.download_started() | State.download_rescheduled() | State.t()
-  defp maybe_update_firmware(%UpdateAvailable{update_available: false}, %State{} = state) do
+  defp maybe_update_firmware(%UpdatePayload{update_available: false}, %State{} = state) do
     # if the `update_available` key is false, bail early. There is no update
     state
   end
@@ -198,7 +198,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
     state
   end
 
-  defp maybe_update_firmware(%UpdateAvailable{} = data, %State{} = state) do
+  defp maybe_update_firmware(%UpdatePayload{} = data, %State{} = state) do
     # Cancel an existing timer if it exists.
     # This prevents rescheduled updates`
     # from compounding.
@@ -231,9 +231,9 @@ defmodule NervesHubLinkCommon.UpdateManager do
     %{state | update_reschedule_timer: nil}
   end
 
-  @spec start_fwup_stream(UpdateAvailable.t(), State.t()) :: State.download_started()
+  @spec start_fwup_stream(UpdatePayload.t(), State.t()) :: State.download_started()
   defp start_fwup_stream(
-         %UpdateAvailable{firmware_meta: %UpdateAvailable.FirmwareMetadata{uuid: uuid}} = update,
+         %UpdatePayload{firmware_meta: %UpdatePayload.FirmwareMetadata{uuid: uuid}} = update,
          state
        ) do
     pid = self()

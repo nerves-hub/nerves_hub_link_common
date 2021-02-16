@@ -1,4 +1,4 @@
-defmodule NervesHubLinkCommon.UpdateAvailable do
+defmodule NervesHubLinkCommon.UpdatePayload do
   defmodule FirmwareMetadata do
     @moduledoc "Metadata about an update"
     defstruct [

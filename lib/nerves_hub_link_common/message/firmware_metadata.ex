@@ -1,12 +1,13 @@
 defmodule NervesHubLinkCommon.Message.FirmwareMetadata do
-  @moduledoc false
+  @moduledoc """
+  Structure containing metadata about a firmware.
+  """
 
   defstruct [
     :architecture,
     :author,
     :description,
     :fwup_version,
-    :id,
     :misc,
     :platform,
     :product,
@@ -28,20 +29,20 @@ defmodule NervesHubLinkCommon.Message.FirmwareMetadata do
           version: Version.build()
         }
 
-  @spec parse(map()) :: t()
+  @spec parse(map()) :: {:ok, t()}
   def parse(params) do
-    %__MODULE__{
-      architecture: params["architecture"],
-      author: params["author"],
-      description: params["description"],
-      fwup_version: params["fwup_version"],
-      id: params["id"],
-      misc: params["misc"],
-      platform: params["platform"],
-      product: params["product"],
-      uuid: params["uuid"],
-      vcs_identifier: params["vcs_identifier"],
-      version: params["version"]
-    }
+    {:ok,
+     %__MODULE__{
+       architecture: params["architecture"],
+       author: params["author"],
+       description: params["description"],
+       fwup_version: params["fwup_version"],
+       misc: params["misc"],
+       platform: params["platform"],
+       product: params["product"],
+       uuid: params["uuid"],
+       vcs_identifier: params["vcs_identifier"],
+       version: params["version"]
+     }}
   end
 end

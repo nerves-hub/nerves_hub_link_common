@@ -79,6 +79,10 @@ defmodule NervesHubLinkCommon.UpdateManager do
     GenServer.call(manager, :status)
   end
 
+  def currently_downloading_uuid(manager \\ __MODULE__) do
+    GenServer.call(manager, :currently_downloading_uuid)
+  end
+
   @doc false
   def child_spec(%FwupConfig{} = args) do
     %{
@@ -102,6 +106,14 @@ defmodule NervesHubLinkCommon.UpdateManager do
   def handle_call({:apply_update, %UpdateInfo{} = update}, _from, %State{} = state) do
     state = maybe_update_firmware(update, state)
     {:reply, state.status, state}
+  end
+
+  def handle_call(:currently_downloading_uuid, _from, %State{update_info: nil} = state) do
+    {:reply, nil, state}
+  end
+
+  def handle_call(:currently_downloading_uuid, _from, %State{} = state) do
+    {:reply, state.update_info.firmware_meta.uuid, state}
   end
 
   def handle_call(:status, _from, %State{} = state) do

@@ -21,11 +21,13 @@ defmodule NervesHubLinkCommon.UpdateManager do
     `UpdateManager` can be in
     """
 
+    @type uuid :: String.t()
+
     @type status ::
             :idle
             | {:fwup_error, String.t()}
             | :update_rescheduled
-            | {:updating, integer()}
+            | {:updating, uuid, integer()}
 
     @type t :: %__MODULE__{
             status: status(),
@@ -37,7 +39,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
           }
 
     @type download_started :: %__MODULE__{
-            status: {:updating, integer()} | {:fwup_error, String.t()},
+            status: {:updating, uuid, integer()} | {:fwup_error, String.t()},
             update_reschedule_timer: nil,
             download: GenServer.server(),
             fwup: GenServer.server(),
@@ -125,7 +127,8 @@ defmodule NervesHubLinkCommon.UpdateManager do
 
     case message do
       {:progress, percent} ->
-        {:noreply, %State{state | status: {:updating, percent}}}
+        status = {:updating, state.update_info.firmware_meta.uuid, percent}
+        {:noreply, %State{state | status: status}}
 
       {:error, _, message} ->
         {:noreply, %State{state | status: {:fwup_error, message}}}
@@ -157,7 +160,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
 
   defp maybe_update_firmware(
          %UpdateInfo{} = _update_info,
-         %State{status: {:updating, _percent}} = state
+         %State{status: {:updating, _uuid, _percent}} = state
        ) do
     # Received an update message from NervesHub, but we're already in progress.
     # It could be because the deployment/device was edited making a duplicate
@@ -208,15 +211,9 @@ defmodule NervesHubLinkCommon.UpdateManager do
     fun = &send(pid, {:download, &1})
     {:ok, download} = Downloader.start_download(update_info.firmware_url, fun)
     {:ok, fwup} = Fwup.stream(pid, fwup_args(state.fwup_config))
+    status = {:updating, update_info.firmware_meta.uuid, 0}
     Logger.info("[NervesHubLink] Downloading firmware: #{update_info.firmware_url}")
-
-    %State{
-      state
-      | status: {:updating, 0},
-        download: download,
-        fwup: fwup,
-        update_info: update_info
-    }
+    %State{state | status: status, download: download, fwup: fwup, update_info: update_info}
   end
 
   @spec fwup_args(FwupConfig.t()) :: [String.t()]

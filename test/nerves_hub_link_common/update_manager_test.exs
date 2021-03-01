@@ -11,7 +11,7 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
 
       update_payload = %UpdateInfo{
         firmware_url: "http://localhost:#{port}/test.fw",
-        firmware_meta: %FirmwareMetadata{}
+        firmware_meta: %FirmwareMetadata{uuid: "test-uuid"}
       }
 
       {:ok, plug} =
@@ -36,7 +36,7 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
       }
 
       {:ok, manager} = UpdateManager.start_link(fwup_config)
-      assert UpdateManager.apply_update(manager, update_payload) == {:updating, 0}
+      assert {:updating, "test-uuid", 0} = UpdateManager.apply_update(manager, update_payload)
 
       meta = update_payload.firmware_meta
 

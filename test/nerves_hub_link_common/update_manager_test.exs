@@ -26,7 +26,7 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
 
     test "apply", %{update_payload: update_payload, devpath: devpath} do
       test_pid = self()
-      fwup_fun = &send(test_pid, {:fwup, &1})
+      fwup_fun = &send(test_pid, {:fwup, &1, &2})
       update_available_fun = fn _ -> :apply end
 
       fwup_config = %FwupConfig{
@@ -38,14 +38,16 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
       {:ok, manager} = UpdateManager.start_link(fwup_config)
       assert UpdateManager.apply_update(manager, update_payload) == {:updating, 0}
 
-      assert_receive {:fwup, {:progress, 0}}
-      assert_receive {:fwup, {:progress, 100}}
-      assert_receive {:fwup, {:ok, 0, ""}}
+      meta = update_payload.firmware_meta
+
+      assert_receive {:fwup, {:progress, 0}, ^meta}
+      assert_receive {:fwup, {:progress, 100}, ^meta}
+      assert_receive {:fwup, {:ok, 0, ""}, ^meta}
     end
 
     test "reschedule", %{update_payload: update_payload, devpath: devpath} do
       test_pid = self()
-      fwup_fun = &send(test_pid, {:fwup, &1})
+      fwup_fun = &send(test_pid, {:fwup, &1, &2})
 
       update_available_fun = fn _ ->
         case Process.get(:reschedule) do
@@ -70,9 +72,11 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
       assert_received :rescheduled
       refute_received {:fwup, _}
 
-      assert_receive {:fwup, {:progress, 0}}
-      assert_receive {:fwup, {:progress, 100}}
-      assert_receive {:fwup, {:ok, 0, ""}}
+      meta = update_payload.firmware_meta
+
+      assert_receive {:fwup, {:progress, 0}, ^meta}
+      assert_receive {:fwup, {:progress, 100}, ^meta}
+      assert_receive {:fwup, {:ok, 0, ""}, ^meta}
     end
   end
 end

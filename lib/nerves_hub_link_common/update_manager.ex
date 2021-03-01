@@ -32,7 +32,8 @@ defmodule NervesHubLinkCommon.UpdateManager do
             update_reschedule_timer: nil | :timer.tref(),
             download: nil | GenServer.server(),
             fwup: nil | GenServer.server(),
-            fwup_config: FwupConfig.t()
+            fwup_config: FwupConfig.t(),
+            update_info: nil | UpdateInfo.t()
           }
 
     @type download_started :: %__MODULE__{
@@ -40,7 +41,8 @@ defmodule NervesHubLinkCommon.UpdateManager do
             update_reschedule_timer: nil,
             download: GenServer.server(),
             fwup: GenServer.server(),
-            fwup_config: FwupConfig.t()
+            fwup_config: FwupConfig.t(),
+            update_info: UpdateInfo.t()
           }
 
     @type download_rescheduled :: %__MODULE__{
@@ -48,14 +50,16 @@ defmodule NervesHubLinkCommon.UpdateManager do
             update_reschedule_timer: :timer.tref(),
             download: nil,
             fwup: nil,
-            fwup_config: FwupConfig.t()
+            fwup_config: FwupConfig.t(),
+            update_info: nil
           }
 
     defstruct status: :idle,
               update_reschedule_timer: nil,
               fwup: nil,
               download: nil,
-              fwup_config: nil
+              fwup_config: nil,
+              update_info: nil
   end
 
   @doc """
@@ -112,12 +116,12 @@ defmodule NervesHubLinkCommon.UpdateManager do
   # messages from FWUP
   def handle_info({:fwup, {:ok, 0, _message} = full_message}, state) do
     Logger.info("[NervesHubLink] FWUP Finished")
-    _ = state.fwup_config.handle_fwup_message.(full_message)
-    {:noreply, %State{state | fwup: nil}}
+    _ = state.fwup_config.handle_fwup_message.(full_message, state.update_info.firmware_meta)
+    {:noreply, %State{state | fwup: nil, update_info: nil}}
   end
 
   def handle_info({:fwup, message}, state) do
-    _ = state.fwup_config.handle_fwup_message.(message)
+    _ = state.fwup_config.handle_fwup_message.(message, state.update_info.firmware_meta)
 
     case message do
       {:progress, percent} ->
@@ -205,7 +209,14 @@ defmodule NervesHubLinkCommon.UpdateManager do
     {:ok, download} = Downloader.start_download(update_info.firmware_url, fun)
     {:ok, fwup} = Fwup.stream(pid, fwup_args(state.fwup_config))
     Logger.info("[NervesHubLink] Downloading firmware: #{update_info.firmware_url}")
-    %State{state | status: {:updating, 0}, download: download, fwup: fwup}
+
+    %State{
+      state
+      | status: {:updating, 0},
+        download: download,
+        fwup: fwup,
+        update_info: update_info
+    }
   end
 
   @spec fwup_args(FwupConfig.t()) :: [String.t()]

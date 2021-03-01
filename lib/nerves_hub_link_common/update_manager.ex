@@ -11,26 +11,21 @@ defmodule NervesHubLinkCommon.UpdateManager do
   require Logger
   use GenServer
 
+  alias NervesHubLinkCommon.UpdateManager.Progress
   alias NervesHubLinkCommon.{Downloader, FwupConfig}
   alias NervesHubLinkCommon.Message.UpdateInfo
 
   defmodule State do
     @moduledoc """
     Structure for the state of the `UpdateManager` server.
-    Contains types that describe status and different states the
+    Contains types that describe progress and different states the
     `UpdateManager` can be in
     """
 
     @type uuid :: String.t()
 
-    @type status ::
-            :idle
-            | {:fwup_error, String.t()}
-            | :update_rescheduled
-            | {:updating, uuid, integer()}
-
     @type t :: %__MODULE__{
-            status: status(),
+            progress: nil,
             update_reschedule_timer: nil | :timer.tref(),
             download: nil | GenServer.server(),
             fwup: nil | GenServer.server(),
@@ -39,7 +34,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
           }
 
     @type download_started :: %__MODULE__{
-            status: {:updating, uuid, integer()} | {:fwup_error, String.t()},
+            progress: Progress.t(),
             update_reschedule_timer: nil,
             download: GenServer.server(),
             fwup: GenServer.server(),
@@ -48,7 +43,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
           }
 
     @type download_rescheduled :: %__MODULE__{
-            status: :update_rescheduled,
+            progress: nil,
             update_reschedule_timer: :timer.tref(),
             download: nil,
             fwup: nil,
@@ -56,7 +51,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
             update_info: nil
           }
 
-    defstruct status: :idle,
+    defstruct progress: :idle,
               update_reschedule_timer: nil,
               fwup: nil,
               download: nil,
@@ -67,18 +62,24 @@ defmodule NervesHubLinkCommon.UpdateManager do
   @doc """
   Must be called when an update payload is dispatched from
   NervesHub. the map must contain a `"firmware_url"` key.
+
+  Returns `nil` when no update is currently in progress or if an update has been
+  rescheduled.
   """
-  @spec apply_update(GenServer.server(), UpdateInfo.t()) :: State.status()
+  @spec apply_update(GenServer.server(), UpdateInfo.t()) :: nil | Progress.t()
   def apply_update(manager \\ __MODULE__, %UpdateInfo{} = update_info) do
     GenServer.call(manager, {:apply_update, update_info})
   end
 
   @doc """
-  Returns the current status of the update manager
+  Returns the current progress of the update manager
+
+  This function returns `nil` when no update is currently in progress
+  or if an update has been rescheduled.
   """
-  @spec status(GenServer.server()) :: State.status()
-  def status(manager \\ __MODULE__) do
-    GenServer.call(manager, :status)
+  @spec progress(GenServer.server()) :: nil | Progress.t()
+  def progress(manager \\ __MODULE__) do
+    GenServer.call(manager, :progress)
   end
 
   @doc false
@@ -103,11 +104,11 @@ defmodule NervesHubLinkCommon.UpdateManager do
   @impl GenServer
   def handle_call({:apply_update, %UpdateInfo{} = update}, _from, %State{} = state) do
     state = maybe_update_firmware(update, state)
-    {:reply, state.status, state}
+    {:reply, state.progress, state}
   end
 
-  def handle_call(:status, _from, %State{} = state) do
-    {:reply, state.status, state}
+  def handle_call(:progress, _from, %State{} = state) do
+    {:reply, state.progress, state}
   end
 
   @impl GenServer
@@ -127,11 +128,17 @@ defmodule NervesHubLinkCommon.UpdateManager do
 
     case message do
       {:progress, percent} ->
-        status = {:updating, state.update_info.firmware_meta.uuid, percent}
-        {:noreply, %State{state | status: status}}
+        progress = %Progress{uuid: state.update_info.firmware_meta.uuid, percent: percent}
+        {:noreply, %State{state | progress: progress}}
 
       {:error, _, message} ->
-        {:noreply, %State{state | status: {:fwup_error, message}}}
+        progress = %Progress{
+          state.progress
+          | uuid: state.update_info.firmware_meta.uuid,
+            error: message
+        }
+
+        {:noreply, %State{state | progress: progress}}
 
       _ ->
         {:noreply, state}
@@ -160,7 +167,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
 
   defp maybe_update_firmware(
          %UpdateInfo{} = _update_info,
-         %State{status: {:updating, _uuid, _percent}} = state
+         %State{progress: %Progress{}} = state
        ) do
     # Received an update message from NervesHub, but we're already in progress.
     # It could be because the deployment/device was edited making a duplicate
@@ -191,7 +198,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
       {:reschedule, ms} ->
         timer = Process.send_after(self(), {:update_reschedule, update_info}, ms)
         Logger.info("[NervesHubLink] rescheduling firmware update in #{ms} milliseconds")
-        %{state | status: :update_rescheduled, update_reschedule_timer: timer}
+        %{state | progress: nil, update_reschedule_timer: timer}
     end
   end
 
@@ -211,9 +218,9 @@ defmodule NervesHubLinkCommon.UpdateManager do
     fun = &send(pid, {:download, &1})
     {:ok, download} = Downloader.start_download(update_info.firmware_url, fun)
     {:ok, fwup} = Fwup.stream(pid, fwup_args(state.fwup_config))
-    status = {:updating, update_info.firmware_meta.uuid, 0}
+    progress = %Progress{uuid: update_info.firmware_meta.uuid, percent: 0}
     Logger.info("[NervesHubLink] Downloading firmware: #{update_info.firmware_url}")
-    %State{state | status: status, download: download, fwup: fwup, update_info: update_info}
+    %State{state | progress: progress, download: download, fwup: fwup, update_info: update_info}
   end
 
   @spec fwup_args(FwupConfig.t()) :: [String.t()]

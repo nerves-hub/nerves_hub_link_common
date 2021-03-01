@@ -36,7 +36,12 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
       }
 
       {:ok, manager} = UpdateManager.start_link(fwup_config)
-      assert {:updating, "test-uuid", 0} = UpdateManager.apply_update(manager, update_payload)
+
+      assert UpdateManager.apply_update(manager, update_payload) == %UpdateManager.Progress{
+               uuid: "test-uuid",
+               percent: 0,
+               error: nil
+             }
 
       meta = update_payload.firmware_meta
 
@@ -68,7 +73,7 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
       }
 
       {:ok, manager} = UpdateManager.start_link(fwup_config)
-      assert UpdateManager.apply_update(manager, update_payload) == :update_rescheduled
+      assert UpdateManager.apply_update(manager, update_payload) == nil
       assert_received :rescheduled
       refute_received {:fwup, _}
 

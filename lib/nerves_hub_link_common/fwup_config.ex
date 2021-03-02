@@ -59,7 +59,7 @@ defmodule NervesHubLinkCommon.FwupConfig do
     do: raise(ArgumentError, message: "invalid arg: fwup_devpath")
 
   defp validate_handle_fwup_message!(%__MODULE__{handle_fwup_message: handle_fwup_message} = args)
-       when is_function(handle_fwup_message, 2),
+       when is_function(handle_fwup_message, 1),
        do: args
 
   defp validate_handle_fwup_message!(%__MODULE__{}),

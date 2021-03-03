@@ -36,24 +36,6 @@ defmodule NervesHubLinkCommon.UpdateManager do
             update_info: nil | UpdateInfo.t()
           }
 
-    @type download_started :: %__MODULE__{
-            status: {:updating, integer()} | {:fwup_error, String.t()},
-            update_reschedule_timer: nil,
-            download: GenServer.server(),
-            fwup: GenServer.server(),
-            fwup_config: FwupConfig.t(),
-            update_info: UpdateInfo.t()
-          }
-
-    @type download_rescheduled :: %__MODULE__{
-            status: :update_rescheduled,
-            update_reschedule_timer: :timer.tref(),
-            download: nil,
-            fwup: nil,
-            fwup_config: FwupConfig.t(),
-            update_info: nil
-          }
-
     defstruct status: :idle,
               update_reschedule_timer: nil,
               fwup: nil,
@@ -79,6 +61,10 @@ defmodule NervesHubLinkCommon.UpdateManager do
     GenServer.call(manager, :status)
   end
 
+  @doc """
+  Returns the UUID of the currently downloading firmware, or nil.
+  """
+  @spec currently_downloading_uuid(GenServer.server()) :: uuid :: String.t() | nil
   def currently_downloading_uuid(manager \\ __MODULE__) do
     GenServer.call(manager, :currently_downloading_uuid)
   end
@@ -126,16 +112,14 @@ defmodule NervesHubLinkCommon.UpdateManager do
   end
 
   # messages from FWUP
-  def handle_info({:fwup, {:ok, 0, _message} = full_message}, state) do
-    Logger.info("[NervesHubLink] FWUP Finished")
-    _ = state.fwup_config.handle_fwup_message.(full_message)
-    {:noreply, %State{state | fwup: nil, update_info: nil}}
-  end
-
   def handle_info({:fwup, message}, state) do
     _ = state.fwup_config.handle_fwup_message.(message)
 
     case message do
+      {:ok, 0, _message} ->
+        Logger.info("[NervesHubLink] FWUP Finished")
+        {:noreply, %State{state | fwup: nil, update_info: nil, status: :idle}}
+
       {:progress, percent} ->
         {:noreply, %State{state | status: {:updating, percent}}}
 
@@ -164,9 +148,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
     {:noreply, state}
   end
 
-  @spec maybe_update_firmware(UpdateInfo.t(), State.t()) ::
-          State.download_started() | State.download_rescheduled() | State.t()
-
+  @spec maybe_update_firmware(UpdateInfo.t(), State.t()) :: State.t()
   defp maybe_update_firmware(
          %UpdateInfo{} = _update_info,
          %State{status: {:updating, _percent}} = state
@@ -214,7 +196,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
     %{state | update_reschedule_timer: nil}
   end
 
-  @spec start_fwup_stream(UpdateInfo.t(), State.t()) :: State.download_started()
+  @spec start_fwup_stream(UpdateInfo.t(), State.t()) :: State.t()
   defp start_fwup_stream(%UpdateInfo{} = update_info, state) do
     pid = self()
     fun = &send(pid, {:download, &1})

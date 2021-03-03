@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.2.0
+
+This release has an API breaking change. You're probably using this library as a result of depending on `nerves_hub_link` so these changes won't affect your application code.
+
+* New features
+  * On reconnecting to a NervesHub instance, an firmware download that's in process will be reported
+  
+* Bug fixes
+  * Properly ignore NervesHub responses that indicate no update is available.
+  
+* API breaking change:
+  * `apply_update/1` now returns a `%NervesHubLinkCommon.Message.UpdateInfo{}`
+
 ## v0.1.3
 
 * New features

@@ -1,7 +1,7 @@
 defmodule NervesHubLinkCommon.MixProject do
   use Mix.Project
 
-  @version "0.1.3"
+  @version "0.2.0"
   @source_url "https://github.com/nerves-hub/nerves_hub_link_common"
 
   def project do

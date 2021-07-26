@@ -214,10 +214,10 @@ defmodule NervesHubLinkCommon.UpdateManager do
   end
 
   @spec fwup_args(FwupConfig.t()) :: [String.t()]
-  defp fwup_args(%FwupConfig{fwup_public_keys: fwup_public_keys, fwup_devpath: devpath}) do
-    args = ["--apply", "--no-unmount", "-d", devpath, "--task", "upgrade"]
+  defp fwup_args(%FwupConfig{} = config) do
+    args = ["--apply", "--no-unmount", "-d", config.fwup_devpath, "--task", config.fwup_task]
 
-    Enum.reduce(fwup_public_keys, args, fn public_key, args ->
+    Enum.reduce(config.fwup_public_keys, args, fn public_key, args ->
       args ++ ["--public-key", public_key]
     end)
   end

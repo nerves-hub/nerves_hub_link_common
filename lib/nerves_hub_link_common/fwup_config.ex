@@ -7,6 +7,7 @@ defmodule NervesHubLinkCommon.FwupConfig do
 
   defstruct fwup_public_keys: [],
             fwup_devpath: "/dev/mmcblk0",
+            fwup_task: "upgrade",
             handle_fwup_message: nil,
             update_available: nil
 
@@ -33,11 +34,13 @@ defmodule NervesHubLinkCommon.FwupConfig do
   @type t :: %__MODULE__{
           fwup_public_keys: [String.t()],
           fwup_devpath: Path.t(),
+          fwup_task: String.t(),
           handle_fwup_message: handle_fwup_message_fun,
           update_available: update_available_fun
         }
 
   @doc "Raises an ArgumentError on invalid arguments"
+  @spec validate!(t()) :: t()
   def validate!(%__MODULE__{} = args) do
     args
     |> validate_fwup_public_keys!()

@@ -33,19 +33,22 @@ defmodule Fwup.TestSupport.Fixtures do
   specify the private key to be used for signing a firmware image via
   `sign_firmware/3` and `create_signed_firmware/4`
   """
-  def gen_key_pair(key_name) do
+  @spec gen_key_pair(String.t()) :: :ok
+  def(gen_key_pair(key_name)) do
     key_path_no_extension = Path.join([System.tmp_dir(), key_name])
 
     for ext <- ~w(.priv .pub) do
-      File.rm(key_path_no_extension <> ext)
+      _ = File.rm(key_path_no_extension <> ext)
     end
 
-    System.cmd("fwup", ["-g", "-o", key_path_no_extension], stderr_to_stdout: true)
+    {_, 0} = System.cmd("fwup", ["-g", "-o", key_path_no_extension], stderr_to_stdout: true)
+    :ok
   end
 
   @doc """
   Get a public key which has been generated via `gen_key_pair/1`.
   """
+  @spec get_public_key(String.t()) :: String.t()
   def get_public_key(key_name) do
     File.read!(Path.join([System.tmp_dir(), key_name <> ".pub"]))
   end
@@ -53,18 +56,20 @@ defmodule Fwup.TestSupport.Fixtures do
   @doc """
   Create an unsigned firmware image, and return the path to that image.
   """
+  @spec create_firmware(String.t(), map()) :: {:ok, String.t()}
   def create_firmware(firmware_name, meta_params \\ %{}) do
     conf_path = make_conf(struct(MetaParams, meta_params))
     out_path = Path.join([System.tmp_dir(), firmware_name <> ".fw"])
-    File.rm(out_path)
+    _ = File.rm(out_path)
 
-    System.cmd("fwup", [
-      "-c",
-      "-f",
-      conf_path,
-      "-o",
-      out_path
-    ])
+    {_, 0} =
+      System.cmd("fwup", [
+        "-c",
+        "-f",
+        conf_path,
+        "-o",
+        out_path
+      ])
 
     {:ok, out_path}
   end
@@ -73,23 +78,25 @@ defmodule Fwup.TestSupport.Fixtures do
   Sign a firmware image, and return the path to that image. The `firmware_name`
   argument must match the name of a firmware created with `create_firmware/2`.
   """
+  @spec sign_firmware(String.t(), String.t(), String.t()) :: {:ok, String.t()}
   def sign_firmware(key_name, firmware_name, output_name) do
     dir = System.tmp_dir()
     output_path = Path.join([dir, output_name <> ".fw"])
 
-    System.cmd(
-      "fwup",
-      [
-        "-S",
-        "-s",
-        Path.join([dir, key_name <> ".priv"]),
-        "-i",
-        Path.join([dir, firmware_name <> ".fw"]),
-        "-o",
-        output_path
-      ],
-      stderr_to_stdout: true
-    )
+    {_, 0} =
+      System.cmd(
+        "fwup",
+        [
+          "-S",
+          "-s",
+          Path.join([dir, key_name <> ".priv"]),
+          "-i",
+          Path.join([dir, firmware_name <> ".fw"]),
+          "-o",
+          output_path
+        ],
+        stderr_to_stdout: true
+      )
 
     {:ok, output_path}
   end
@@ -97,14 +104,16 @@ defmodule Fwup.TestSupport.Fixtures do
   @doc """
   Create a signed firmware image, and return the path to that image.
   """
+  @spec create_signed_firmware(String.t(), String.t(), String.t(), map()) :: {:ok, String.t()}
   def create_signed_firmware(key_name, firmware_name, output_name, meta_params \\ %{}) do
-    create_firmware(firmware_name, meta_params)
+    {:ok, _} = create_firmware(firmware_name, meta_params)
     sign_firmware(key_name, firmware_name, output_name)
   end
 
   @doc """
   Corrupt an existing firmware image.
   """
+  @spec corrupt_firmware_file(String.t(), String.t()) :: {:ok, String.t()}
   def corrupt_firmware_file(input_path, output_name \\ "corrupt") do
     output_path = Path.join([System.tmp_dir(), output_name <> ".fw"])
     :ok = File.cp!(input_path, output_path)

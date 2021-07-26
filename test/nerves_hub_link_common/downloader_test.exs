@@ -33,7 +33,7 @@ defmodule NervesHubLinkCommon.DownloaderTest do
     Process.flag(:trap_exit, true)
     {:ok, download} = Downloader.start_download(@failure_url, handler_fun, retry_args)
     # should receive this one twice
-    assert_receive {:error, %Mint.TransportError{reason: :econnrefused}}
+    assert_receive {:error, %Mint.TransportError{reason: :econnrefused}}, 1000
     assert_receive {:error, %Mint.TransportError{reason: :econnrefused}}
     # then exit
     assert_receive {:EXIT, ^download, :max_disconnects_reached}
@@ -49,7 +49,7 @@ defmodule NervesHubLinkCommon.DownloaderTest do
 
     Process.flag(:trap_exit, true)
     {:ok, download} = Downloader.start_download(@failure_url, handler_fun, retry_args)
-    assert_receive {:error, %Mint.TransportError{reason: :econnrefused}}
+    assert_receive {:error, %Mint.TransportError{reason: :econnrefused}}, 1000
     assert_receive {:EXIT, ^download, :max_timeout_reached}
   end
 
@@ -96,7 +96,7 @@ defmodule NervesHubLinkCommon.DownloaderTest do
       handler_fun = &send(test_pid, &1)
       Process.flag(:trap_exit, true)
       {:ok, download} = Downloader.start_download(url, handler_fun, @short_retry_args)
-      assert_receive {:error, %Mint.HTTPError{reason: {:http_error, 416}}}
+      assert_receive {:error, %Mint.HTTPError{reason: {:http_error, 416}}}, 1000
       assert_receive {:EXIT, ^download, {:http_error, 416}}
     end
   end
@@ -118,7 +118,7 @@ defmodule NervesHubLinkCommon.DownloaderTest do
       handler_fun = &send(test_pid, &1)
       {:ok, _} = Downloader.start_download(url, handler_fun, @short_retry_args)
 
-      assert_receive {:data, "h"}
+      assert_receive {:data, "h"}, 1000
       assert_receive {:error, _}
 
       refute_receive {:error, _}
@@ -167,7 +167,7 @@ defmodule NervesHubLinkCommon.DownloaderTest do
       # the plug will terminate the connection after 2048 bytes are sent.
       # the handler_fun will send the data to this test's mailbox.
       {:ok, _download} = Downloader.start_download(url, handler_fun, @short_retry_args)
-      assert_receive {:data, ^expected_data_part_1}
+      assert_receive {:data, ^expected_data_part_1}, 1000
 
       # download will be resumed after the error
       assert_receive {:error, _}

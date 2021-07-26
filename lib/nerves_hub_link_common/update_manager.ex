@@ -201,7 +201,10 @@ defmodule NervesHubLinkCommon.UpdateManager do
     pid = self()
     fun = &send(pid, {:download, &1})
     {:ok, download} = Downloader.start_download(update_info.firmware_url, fun)
-    {:ok, fwup} = Fwup.stream(pid, fwup_args(state.fwup_config))
+
+    {:ok, fwup} =
+      Fwup.stream(pid, fwup_args(state.fwup_config), fwup_env: state.fwup_config.fwup_env)
+
     Logger.info("[NervesHubLink] Downloading firmware: #{update_info.firmware_url}")
 
     %State{

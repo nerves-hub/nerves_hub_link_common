@@ -7,6 +7,7 @@ defmodule NervesHubLinkCommon.FwupConfig do
 
   defstruct fwup_public_keys: [],
             fwup_devpath: "/dev/mmcblk0",
+            fwup_env: [],
             fwup_task: "upgrade",
             handle_fwup_message: nil,
             update_available: nil
@@ -35,6 +36,7 @@ defmodule NervesHubLinkCommon.FwupConfig do
           fwup_public_keys: [String.t()],
           fwup_devpath: Path.t(),
           fwup_task: String.t(),
+          fwup_env: [{String.t(), String.t()}],
           handle_fwup_message: handle_fwup_message_fun,
           update_available: update_available_fun
         }
@@ -45,6 +47,7 @@ defmodule NervesHubLinkCommon.FwupConfig do
     args
     |> validate_fwup_public_keys!()
     |> validate_fwup_devpath!()
+    |> validate_fwup_env!()
     |> validate_handle_fwup_message!()
     |> validate_update_available!()
   end
@@ -74,4 +77,10 @@ defmodule NervesHubLinkCommon.FwupConfig do
 
   defp validate_update_available!(%__MODULE__{}),
     do: raise(ArgumentError, message: "update_available function signature incorrect")
+
+  defp validate_fwup_env!(%__MODULE__{fwup_env: list} = args) when is_list(list),
+    do: args
+
+  defp validate_fwup_env!(%__MODULE__{}),
+    do: raise(ArgumentError, message: "invalid arg: fwup_env")
 end

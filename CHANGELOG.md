@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.3.0
+
+No breaking changes
+
+This bumps `:fwup` dependency to 1.0.0 which opens up new features
+during the update process. The default behavior remains unchanged
+
+* New Features
+  * Add support for setting fwup environment variables
+  * Support changing the fwup upgrade task
+
 ## v0.2.0
 
 This release has an API breaking change. You're probably using this library as a result of depending on `nerves_hub_link` so these changes won't affect your application code.

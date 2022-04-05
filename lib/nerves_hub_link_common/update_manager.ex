@@ -54,6 +54,15 @@ defmodule NervesHubLinkCommon.UpdateManager do
   end
 
   @doc """
+  Must be called when a deployment info payload is dispatched from
+  NervesHub.
+  """
+  @spec apply_deployment_info(GenServer.server(), map()) :: :ok
+  def apply_deployment_info(manager \\ __MODULE__, deployment_info) do
+    GenServer.call(manager, {:apply_deployment_info, deployment_info})
+  end
+
+  @doc """
   Returns the current status of the update manager
   """
   @spec status(GenServer.server()) :: State.status()
@@ -94,6 +103,11 @@ defmodule NervesHubLinkCommon.UpdateManager do
   def handle_call({:apply_update, %UpdateInfo{} = update}, _from, %State{} = state) do
     state = maybe_update_firmware(update, state)
     {:reply, state.status, state}
+  end
+
+  def handle_call({:apply_deployment_info, deployment_info}, _from, %State{} = state) do
+    state.fwup_config.deployment_info_available.(deployment_info)
+    {:reply, :ok, state}
   end
 
   def handle_call(:currently_downloading_uuid, _from, %State{update_info: nil} = state) do

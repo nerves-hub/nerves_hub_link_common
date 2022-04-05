@@ -10,7 +10,8 @@ defmodule NervesHubLinkCommon.FwupConfig do
             fwup_env: [],
             fwup_task: "upgrade",
             handle_fwup_message: nil,
-            update_available: nil
+            update_available: nil,
+            deployment_info_available: nil
 
   @typedoc """
   `handle_fwup_message` will be called with this data
@@ -27,10 +28,15 @@ defmodule NervesHubLinkCommon.FwupConfig do
   @type handle_fwup_message_fun() :: (fwup_message -> any)
 
   @typedoc """
-  Called when an update has been dispatched via `NervesHubLinkCommon.UpdateManager.apply_update/2`
+  Called when a firmware update has been dispatched via `NervesHubLinkCommon.UpdateManager.apply_update/2`
   """
   @type update_available_fun() ::
           (UpdateInfo.t() -> :ignore | {:reschedule, timeout()} | :apply)
+
+  @typedoc """
+  Called when a deployment info update has been dispatched via `NervesHubLinkCommon.UpdateManager.apply_deployment_info/2`
+  """
+  @type deployment_info_available_fun() :: (map() -> :ok)
 
   @type t :: %__MODULE__{
           fwup_public_keys: [String.t()],
@@ -38,7 +44,8 @@ defmodule NervesHubLinkCommon.FwupConfig do
           fwup_task: String.t(),
           fwup_env: [{String.t(), String.t()}],
           handle_fwup_message: handle_fwup_message_fun,
-          update_available: update_available_fun
+          update_available: update_available_fun,
+          deployment_info_available: deployment_info_available_fun
         }
 
   @doc "Raises an ArgumentError on invalid arguments"

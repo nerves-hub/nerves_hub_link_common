@@ -14,10 +14,6 @@ defmodule Fwup.TestSupport.Fixtures do
   takes little effort to avoid collisions on its own.
   """
 
-  @after_compile {__MODULE__, :compiler_options}
-
-  def compiler_options(_env, _bytecode), do: Code.compiler_options(ignore_module_conflict: false)
-
   defmodule MetaParams do
     @moduledoc false
     defstruct product: "nerves-hub",

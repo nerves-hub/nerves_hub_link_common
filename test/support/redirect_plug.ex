@@ -1,6 +1,5 @@
 defmodule NervesHubLinkCommon.Support.RedirectPlug do
-  @moduledoc """
-  """
+  @moduledoc false
 
   @behaviour Plug
 

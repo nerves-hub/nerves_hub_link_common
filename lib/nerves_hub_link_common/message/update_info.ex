@@ -1,6 +1,5 @@
 defmodule NervesHubLinkCommon.Message.UpdateInfo do
-  @moduledoc """
-  """
+  @moduledoc false
 
   alias NervesHubLinkCommon.Message.FirmwareMetadata
 

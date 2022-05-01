@@ -30,16 +30,16 @@ defmodule NervesHubLinkCommon.Support.RangeRequestPlug do
     halt(conn)
   end
 
-  def fetch_range(payload, start, finish) do
+  defp fetch_range(payload, start, finish) do
     {_, tail} = String.split_at(payload, start)
     fetch_range_until(tail, <<>>, start, finish)
   end
 
-  def fetch_range_until(_, acc, finish, finish) do
+  defp fetch_range_until(_, acc, finish, finish) do
     acc
   end
 
-  def fetch_range_until(<<c::binary-size(1), rest::binary>>, acc, i, finish) do
+  defp fetch_range_until(<<c::binary-size(1), rest::binary>>, acc, i, finish) do
     fetch_range_until(rest, acc <> c, i + 1, finish)
   end
 

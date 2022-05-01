@@ -16,6 +16,7 @@ defmodule NervesHubLinkCommon.MixProject do
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test,
+        credo: :test,
         docs: :docs,
         "hex.publish": :docs
       ],
@@ -39,7 +40,8 @@ defmodule NervesHubLinkCommon.MixProject do
       {:ex_doc, "~> 0.18", only: :docs, runtime: false},
       {:excoveralls, "~> 0.10", only: :test},
       {:plug_cowboy, "~> 2.0", only: :test},
-      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false}
+      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.2", only: :test, runtime: false}
     ]
   end
 

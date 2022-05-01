@@ -2,11 +2,11 @@ defmodule NervesHubLinkCommon.DownloaderTest do
   use ExUnit.Case
 
   alias NervesHubLinkCommon.Support.{
-    XRetryNumberPlug,
-    RedirectPlug,
-    RangeRequestPlug,
     HTTPErrorPlug,
-    IdleTimeoutPlug
+    IdleTimeoutPlug,
+    RangeRequestPlug,
+    RedirectPlug,
+    XRetryNumberPlug
   }
 
   alias NervesHubLinkCommon.{Downloader, Downloader.RetryConfig}

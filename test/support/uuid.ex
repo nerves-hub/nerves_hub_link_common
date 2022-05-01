@@ -7,7 +7,8 @@ defmodule Ecto.UUID do
   @doc """
   Generates a version 4 (random) UUID.
   """
-  def generate do
+  @spec generate() :: <<_::288>>
+  def generate() do
     {:ok, uuid} = encode(bingenerate())
     uuid
   end
@@ -15,14 +16,16 @@ defmodule Ecto.UUID do
   @doc """
   Generates a version 4 (random) UUID in the binary format.
   """
-  def bingenerate do
+  @spec bingenerate() :: <<_::128>>
+  def bingenerate() do
     <<u0::48, _::4, u1::12, _::2, u2::62>> = :crypto.strong_rand_bytes(16)
     <<u0::48, 4::4, u1::12, 2::2, u2::62>>
   end
 
   # Callback invoked by autogenerate fields.
   @doc false
-  def autogenerate, do: generate()
+  @spec autogenerate() :: <<_::288>>
+  def autogenerate(), do: generate()
 
   defp encode(
          <<a1::4, a2::4, a3::4, a4::4, a5::4, a6::4, a7::4, a8::4, b1::4, b2::4, b3::4, b4::4,

@@ -15,10 +15,10 @@ defmodule NervesHubLinkCommon.Downloader do
   side effects on the system.
   """
 
-  require Logger
   use GenServer
 
   alias NervesHubLinkCommon.{Downloader, Downloader.RetryConfig, Downloader.TimeoutCalculation}
+  require Logger
 
   defstruct uri: nil,
             conn: nil,
@@ -96,6 +96,8 @@ defmodule NervesHubLinkCommon.Downloader do
     GenServer.start_link(__MODULE__, [URI.parse(url), fun, %RetryConfig{}])
   end
 
+  @spec start_download(String.t() | URI.t(), event_handler_fun(), RetryConfig.t()) ::
+          GenServer.on_start()
   def start_download(url, fun, %RetryConfig{} = retry_args) when is_function(fun, 1) do
     GenServer.start_link(__MODULE__, [URI.parse(url), fun, retry_args])
   end
@@ -236,6 +238,12 @@ defmodule NervesHubLinkCommon.Downloader do
     {:noreply, state, state.retry_args.idle_timeout}
   end
 
+  @doc false
+  @spec handle_response(
+          {:status, reference(), non_neg_integer()} | {:headers, reference(), keyword()},
+          Downloader.t()
+        ) ::
+          Downloader.t()
   def handle_response(
         {:status, request_ref, status},
         %Downloader{request_ref: request_ref} = state

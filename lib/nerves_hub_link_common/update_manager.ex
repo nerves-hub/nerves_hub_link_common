@@ -7,12 +7,12 @@ defmodule NervesHubLinkCommon.UpdateManager do
 
   Should be started in a supervision tree
   """
-
-  require Logger
   use GenServer
 
   alias NervesHubLinkCommon.{Downloader, FwupConfig}
   alias NervesHubLinkCommon.Message.UpdateInfo
+
+  require Logger
 
   defmodule State do
     @moduledoc """
@@ -70,6 +70,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
   end
 
   @doc false
+  @spec child_spec(FwupConfig.t()) :: Supervisor.child_spec()
   def child_spec(%FwupConfig{} = args) do
     %{
       start: {__MODULE__, :start_link, [args, [name: __MODULE__]]},
@@ -78,6 +79,7 @@ defmodule NervesHubLinkCommon.UpdateManager do
   end
 
   @doc false
+  @spec start_link(FwupConfig.t(), GenServer.options()) :: GenServer.on_start()
   def start_link(%FwupConfig{} = args, opts \\ []) do
     GenServer.start_link(__MODULE__, args, opts)
   end

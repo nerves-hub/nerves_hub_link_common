@@ -1,17 +1,18 @@
 defmodule NervesHubLinkCommon.Support.FWUPStreamPlug do
-  @moduledoc """
-  """
+  @moduledoc false
 
   @behaviour Plug
 
   import Plug.Conn
+
+  alias Fwup.TestSupport.Fixtures
 
   @impl Plug
   def init(options), do: options
 
   @impl Plug
   def call(conn, _opts) do
-    {:ok, path} = Fwup.TestSupport.Fixtures.create_firmware("test")
+    {:ok, path} = Fixtures.create_firmware("test")
 
     conn
     |> send_file(200, path)

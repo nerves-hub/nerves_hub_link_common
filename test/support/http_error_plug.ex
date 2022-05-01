@@ -1,6 +1,5 @@
 defmodule NervesHubLinkCommon.Support.HTTPErrorPlug do
-  @moduledoc """
-  """
+  @moduledoc false
 
   @behaviour Plug
 

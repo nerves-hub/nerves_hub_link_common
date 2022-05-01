@@ -1,7 +1,7 @@
 defmodule NervesHubLinkCommon.UpdateManagerTest do
   use ExUnit.Case
-  alias NervesHubLinkCommon.Message.{UpdateInfo, FirmwareMetadata}
   alias NervesHubLinkCommon.{FwupConfig, UpdateManager}
+  alias NervesHubLinkCommon.Message.{FirmwareMetadata, UpdateInfo}
   alias NervesHubLinkCommon.Support.FWUPStreamPlug
 
   describe "fwup stream" do

@@ -16,9 +16,10 @@ defmodule Fwup.TestSupport.Fixtures do
 
   @after_compile {__MODULE__, :compiler_options}
 
-  def compiler_options(_, _), do: Code.compiler_options(ignore_module_conflict: false)
+  def compiler_options(_env, _bytecode), do: Code.compiler_options(ignore_module_conflict: false)
 
   defmodule MetaParams do
+    @moduledoc false
     defstruct product: "nerves-hub",
               description: "D",
               version: "1.0.0",

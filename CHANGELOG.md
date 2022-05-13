@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.4.0
+
+Potentially breaking changes
+
+This release now requires Elixir 1.11 or later
+
+* Fixed
+  * Relaxes `fwup` to allow for `v1.1` as well
+
 ## v0.3.0
 
 No breaking changes

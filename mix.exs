@@ -51,7 +51,7 @@ defmodule NervesHubLinkCommon.MixProject do
 
   defp dialyzer() do
     [
-      flags: [:race_conditions, :error_handling, :underspecs, :unmatched_returns],
+      flags: [:missing_return, :extra_return, :error_handling, :underspecs, :unmatched_returns],
       plt_add_apps: [],
       list_unused_filters: true
     ]

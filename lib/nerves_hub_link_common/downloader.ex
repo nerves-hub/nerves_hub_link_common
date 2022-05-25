@@ -350,7 +350,9 @@ defmodule NervesHubLinkCommon.Downloader do
   end
 
   @spec resume_download(URI.t(), t()) ::
-          {:ok, initialized_download()} | {:error, Mint.Types.error()}
+          {:ok, initialized_download()}
+          | {:error, Mint.Types.error()}
+          | {:error, Mint.HTTP.t(), Mint.Types.error()}
   defp resume_download(
          %URI{scheme: scheme, host: host, port: port, path: path, query: query} = uri,
          %Downloader{} = state

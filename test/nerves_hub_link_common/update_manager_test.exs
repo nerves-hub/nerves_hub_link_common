@@ -25,15 +25,7 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
     end
 
     test "apply", %{update_payload: update_payload, devpath: devpath} do
-      test_pid = self()
-      fwup_fun = &send(test_pid, {:fwup, &1})
-      update_available_fun = fn _ -> :apply end
-
-      fwup_config = %FwupConfig{
-        fwup_devpath: devpath,
-        handle_fwup_message: fwup_fun,
-        update_available: update_available_fun
-      }
+      fwup_config = %{default_config() | fwup_devpath: devpath}
 
       {:ok, manager} = UpdateManager.start_link(fwup_config)
       assert UpdateManager.apply_update(manager, update_payload) == {:updating, 0}
@@ -45,7 +37,6 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
 
     test "reschedule", %{update_payload: update_payload, devpath: devpath} do
       test_pid = self()
-      fwup_fun = &send(test_pid, {:fwup, &1})
 
       update_available_fun = fn _ ->
         case Process.get(:reschedule) do
@@ -59,10 +50,10 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
         end
       end
 
-      fwup_config = %FwupConfig{
-        fwup_devpath: devpath,
-        handle_fwup_message: fwup_fun,
-        update_available: update_available_fun
+      fwup_config = %{
+        default_config()
+        | fwup_devpath: devpath,
+          update_available: update_available_fun
       }
 
       {:ok, manager} = UpdateManager.start_link(fwup_config)
@@ -76,18 +67,13 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
     end
 
     test "apply with fwup environment", %{update_payload: update_payload, devpath: devpath} do
-      test_pid = self()
-      fwup_fun = &send(test_pid, {:fwup, &1})
-      update_available_fun = fn _ -> :apply end
-
-      fwup_config = %FwupConfig{
-        fwup_devpath: devpath,
-        fwup_task: "secret_upgrade",
-        fwup_env: [
-          {"SUPER_SECRET", "1234567890123456789012345678901234567890123456789012345678901234"}
-        ],
-        handle_fwup_message: fwup_fun,
-        update_available: update_available_fun
+      fwup_config = %{
+        default_config()
+        | fwup_devpath: devpath,
+          fwup_task: "secret_upgrade",
+          fwup_env: [
+            {"SUPER_SECRET", "1234567890123456789012345678901234567890123456789012345678901234"}
+          ]
       }
 
       # If setting SUPER_SECRET in the environment doesn't happen, then test fails
@@ -99,5 +85,40 @@ defmodule NervesHubLinkCommon.UpdateManagerTest do
       assert_receive {:fwup, {:progress, 100}}
       assert_receive {:fwup, {:ok, 0, ""}}
     end
+  end
+
+  test "add fwup public key" do
+    config = default_config()
+    {:ok, manager} = start_supervised({UpdateManager, config})
+
+    assert config.fwup_public_keys == :sys.get_state(manager).fwup_config.fwup_public_keys
+
+    UpdateManager.add_fwup_public_key(manager, "test")
+    keys = :sys.get_state(manager).fwup_config.fwup_public_keys
+    refute config.fwup_public_keys == keys
+    assert keys == ["test"]
+  end
+
+  test "remove fwup public key" do
+    config = %{default_config() | fwup_public_keys: ["test"]}
+    {:ok, manager} = start_supervised({UpdateManager, config})
+
+    assert config.fwup_public_keys == :sys.get_state(manager).fwup_config.fwup_public_keys
+
+    UpdateManager.remove_fwup_public_key(manager, "test")
+    keys = :sys.get_state(manager).fwup_config.fwup_public_keys
+    refute config.fwup_public_keys == keys
+    assert keys == []
+  end
+
+  defp default_config() do
+    test_pid = self()
+    fwup_fun = &send(test_pid, {:fwup, &1})
+    update_available_fun = fn _ -> :apply end
+
+    %FwupConfig{
+      handle_fwup_message: fwup_fun,
+      update_available: update_available_fun
+    }
   end
 end

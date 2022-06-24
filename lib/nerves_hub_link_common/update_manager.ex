@@ -69,6 +69,22 @@ defmodule NervesHubLinkCommon.UpdateManager do
     GenServer.call(manager, :currently_downloading_uuid)
   end
 
+  @doc """
+  Add a FWUP Public key
+  """
+  @spec add_fwup_public_key(GenServer.server(), String.t()) :: :ok
+  def add_fwup_public_key(manager \\ __MODULE__, pubkey) do
+    GenServer.call(manager, {:fwup_public_key, :add, pubkey})
+  end
+
+  @doc """
+  Remove a FWUP public key
+  """
+  @spec remove_fwup_public_key(GenServer.server(), String.t()) :: :ok
+  def remove_fwup_public_key(manager \\ __MODULE__, pubkey) do
+    GenServer.call(manager, {:fwup_public_key, :remove, pubkey})
+  end
+
   @doc false
   @spec child_spec(FwupConfig.t()) :: Supervisor.child_spec()
   def child_spec(%FwupConfig{} = args) do
@@ -106,6 +122,20 @@ defmodule NervesHubLinkCommon.UpdateManager do
 
   def handle_call(:status, _from, %State{} = state) do
     {:reply, state.status, state}
+  end
+
+  def handle_call({:fwup_public_key, action, pubkey}, _from, %State{} = state) do
+    pubkey = String.trim(pubkey)
+    keys = state.fwup_config.fwup_public_keys
+
+    updated =
+      case action do
+        :add -> [pubkey | keys]
+        :remove -> for i <- keys, i != pubkey, do: i
+      end
+
+    state = put_in(state.fwup_config.fwup_public_keys, Enum.uniq(updated))
+    {:reply, :ok, state}
   end
 
   @impl GenServer

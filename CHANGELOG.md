@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.1
+
+* New Features
+  * Support altering FWUP public keys at runtime. See `UpdateManager.add_fwup_public_key/2`
+    and `UpdateManager.remove_fwup_public_key/2`
+
 ## v0.4.0
 
 Potentially breaking changes

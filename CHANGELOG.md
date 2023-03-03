@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.2
+
+* New Features
+  * Allow custom retry configuration (thanks @jeanparpaillon!)
+
 ## v0.4.1
 
 * New Features
